@@ -76,7 +76,14 @@ export class LLMService {
       system: SYSTEM,
       user: buildPrompt(
         context,
-        "Produce a complete teaching package for this lesson.",
+        [
+          "Produce a complete teaching package for this lesson.",
+          // Counts are stated because the schema cannot express them: an array
+          // of one is as valid as an array of five, and smaller models return
+          // the minimum they can get away with.
+          "Include at least 5 vocabulary words, exactly 5 practice questions with answers, at least 4 activity steps, and 2-3 suggested FLN goals.",
+          "Keep each field to its own purpose: the objective is one or two sentences, not a summary of the whole lesson.",
+        ].join(" "),
       ),
       schemaName: "teaching_package",
       schema: TEACHING_PACKAGE_JSON_SCHEMA,
