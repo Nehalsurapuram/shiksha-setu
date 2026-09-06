@@ -3,50 +3,35 @@ import "server-only";
 import { env } from "@/lib/env";
 
 /**
- * Sarvam AI client - PHASE 2.
+ * Shared Sarvam configuration.
  *
- * Deliberately unimplemented. Every method throws `NotImplementedError` rather
- * than returning a plausible-looking string, so no screen can ever show an
- * invented Santhali translation to a teacher and pass it off as real output.
+ * Translation is implemented — see `SarvamTranslationProvider`. Speech is not:
+ * the two functions below still throw rather than returning a plausible-looking
+ * result, so no screen can present invented audio or a fake transcript.
  */
 export const SARVAM_BASE_URL = "https://api.sarvam.ai";
 
 export class NotImplementedError extends Error {
-  constructor(feature: string, phase: number) {
-    super(`${feature} is not implemented yet (planned for Phase ${phase}).`);
+  constructor(feature: string) {
+    super(`${feature} is not implemented yet.`);
     this.name = "NotImplementedError";
   }
 }
 
-export type TranslateInput = {
-  text: string;
-  sourceLanguageCode: string;
-  targetLanguageCode: string;
-};
-
-export type TranslateResult = {
-  text: string;
-  model: string;
-};
-
 export function isSarvamConfigured(): boolean {
   return Boolean(env.SARVAM_API_KEY);
-}
-
-export async function translate(_input: TranslateInput): Promise<TranslateResult> {
-  throw new NotImplementedError("Sarvam translation", 2);
 }
 
 export async function textToSpeech(
   _text: string,
   _languageCode: string,
 ): Promise<ArrayBuffer> {
-  throw new NotImplementedError("Sarvam text-to-speech", 2);
+  throw new NotImplementedError("Sarvam text-to-speech");
 }
 
 export async function speechToText(
   _audio: ArrayBuffer,
   _languageCode: string,
 ): Promise<string> {
-  throw new NotImplementedError("Sarvam speech-to-text", 2);
+  throw new NotImplementedError("Sarvam speech-to-text");
 }

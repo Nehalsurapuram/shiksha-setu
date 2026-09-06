@@ -1,5 +1,7 @@
 import "server-only";
 
+export { MAX_INPUT_CHARS } from "@/lib/ai/translation-limits";
+
 /**
  * The contract every translation provider implements.
  *
@@ -78,6 +80,3 @@ export class TranslationError extends Error {
     this.status = options?.status ?? 400;
   }
 }
-
-/** Longest input Sarvam's sarvam-translate:v1 model accepts in one request. */
-export const MAX_INPUT_CHARS = 2000;
