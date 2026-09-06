@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/layout/app-shell";
-import { getDefaultLanguagePair } from "@/lib/database/queries";
+import type { SelectableLanguage } from "@/components/layout/language-selector";
+import { getDefaultLanguagePair, listLanguages } from "@/lib/database/queries";
 
 /**
  * Every screen under this group reads from Postgres, so the group renders per
@@ -9,15 +10,42 @@ import { getDefaultLanguagePair } from "@/lib/database/queries";
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
-  // The header label is cosmetic: if the database is unreachable the shell must
-  // still render so the user can reach Settings and see what is wrong.
-  let languagePair = "Language pair not configured";
+  // The shell must render even when the database is unreachable, so the user
+  // can still reach Settings and see what is wrong.
+  let languages: SelectableLanguage[] = [];
+  let defaultSource: string | null = null;
+  let defaultTarget: string | null = null;
+
   try {
-    const pair = await getDefaultLanguagePair();
-    if (pair) languagePair = `${pair.source.name} → ${pair.target.name}`;
+    const [all, pair] = await Promise.all([
+      listLanguages(),
+      getDefaultLanguagePair(),
+    ]);
+
+    languages = all.map((language) => ({
+      code: language.code,
+      name: language.name,
+      nativeName: language.nativeName,
+      status: language.status,
+      isSource: language.isSource,
+      isTarget: language.isTarget,
+    }));
+
+    if (pair) {
+      defaultSource = pair.source.code;
+      defaultTarget = pair.target.code;
+    }
   } catch {
-    languagePair = "Database unavailable";
+    // Leave the defaults: the header shows "No language pair configured".
   }
 
-  return <AppShell languagePair={languagePair}>{children}</AppShell>;
+  return (
+    <AppShell
+      languages={languages}
+      defaultSource={defaultSource}
+      defaultTarget={defaultTarget}
+    >
+      {children}
+    </AppShell>
+  );
 }

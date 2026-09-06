@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { Brand } from "@/components/layout/brand";
 import { Header } from "@/components/layout/header";
+import type { SelectableLanguage } from "@/components/layout/language-selector";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 
 /**
@@ -11,10 +12,14 @@ import { SidebarNav } from "@/components/layout/sidebar-nav";
  */
 export function AppShell({
   children,
-  languagePair,
+  languages,
+  defaultSource,
+  defaultTarget,
 }: {
   children: ReactNode;
-  languagePair: string;
+  languages: SelectableLanguage[];
+  defaultSource: string | null;
+  defaultTarget: string | null;
 }) {
   return (
     <div className="flex min-h-dvh bg-background">
@@ -31,7 +36,11 @@ export function AppShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Header languagePair={languagePair} />
+        <Header
+          languages={languages}
+          defaultSource={defaultSource}
+          defaultTarget={defaultTarget}
+        />
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
           <div className="mx-auto w-full max-w-6xl">{children}</div>
         </main>
