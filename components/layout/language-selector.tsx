@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { ArrowRight } from "lucide-react";
 
 export type SelectableLanguage = {
@@ -13,6 +13,20 @@ export type SelectableLanguage = {
 };
 
 const STORAGE_KEY = "shikshasetu.languagePair";
+
+/** The stored value only changes when this component writes it. */
+const subscribe = () => () => {};
+
+function readStored(): string | null {
+  try {
+    return window.localStorage.getItem(STORAGE_KEY);
+  } catch {
+    // Private browsing or blocked site data: fall back to the server defaults.
+    return null;
+  }
+}
+
+const readStoredOnServer = () => null;
 
 /**
  * Classroom language pair.
@@ -38,69 +52,70 @@ export function LanguageSelector({
   defaultSource: string;
   defaultTarget: string;
 }) {
-  const [source, setSource] = useState(defaultSource);
-  const [target, setTarget] = useState(defaultTarget);
+  // Read through the store rather than an effect: the server snapshot is null,
+  // so the first client render matches the server and no state is set during
+  // an effect.
+  const stored = useSyncExternalStore(
+    subscribe,
+    readStored,
+    readStoredOnServer,
+  );
 
-  useEffect(() => {
-    let stored: string | null = null;
+  // Set once the teacher picks something in this session.
+  const [choice, setChoice] = useState<{ source: string; target: string } | null>(
+    null,
+  );
+
+  const isSelectable = (code: string, kind: "source" | "target") =>
+    languages.some(
+      (language) =>
+        language.code === code &&
+        language.status === "ACTIVE" &&
+        (kind === "source" ? language.isSource : language.isTarget),
+    );
+
+  // Re-validate what was stored: a language that was selectable when the
+  // preference was saved may have been removed or moved back to planned since.
+  const [storedSource, storedTarget] = (stored ?? "").split("|");
+
+  const source =
+    choice?.source ??
+    (storedSource && isSelectable(storedSource, "source")
+      ? storedSource
+      : defaultSource);
+
+  const target =
+    choice?.target ??
+    (storedTarget && isSelectable(storedTarget, "target")
+      ? storedTarget
+      : defaultTarget);
+
+  const update = (next: { source: string; target: string }) => {
+    setChoice(next);
     try {
-      stored = window.localStorage.getItem(STORAGE_KEY);
-    } catch {
-      // Site data blocked. The defaults from the server are still correct.
-      return;
-    }
-    if (!stored) return;
-
-    const [storedSource, storedTarget] = stored.split("|");
-    const isSelectable = (code: string, kind: "source" | "target") =>
-      languages.some(
-        (language) =>
-          language.code === code &&
-          language.status === "ACTIVE" &&
-          (kind === "source" ? language.isSource : language.isTarget),
-      );
-
-    // Re-validate: a language that was selectable when this was saved may have
-    // been removed or moved back to planned since.
-    if (storedSource && isSelectable(storedSource, "source")) {
-      setSource(storedSource);
-    }
-    if (storedTarget && isSelectable(storedTarget, "target")) {
-      setTarget(storedTarget);
-    }
-  }, [languages]);
-
-  const persist = (nextSource: string, nextTarget: string) => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, `${nextSource}|${nextTarget}`);
+      window.localStorage.setItem(STORAGE_KEY, `${next.source}|${next.target}`);
     } catch {
       // Nothing to do: the selection still applies for this session.
     }
   };
-
-  const sources = languages.filter((language) => language.isSource);
-  const targets = languages.filter((language) => language.isTarget);
 
   return (
     <div className="flex items-center gap-1.5">
       <LanguageSelect
         label="Language of instruction"
         value={source}
-        options={sources}
-        onChange={(code) => {
-          setSource(code);
-          persist(code, target);
-        }}
+        options={languages.filter((language) => language.isSource)}
+        onChange={(code) => update({ source: code, target })}
       />
-      <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+      <ArrowRight
+        className="size-3.5 shrink-0 text-muted-foreground"
+        aria-hidden
+      />
       <LanguageSelect
         label="Mother tongue"
         value={target}
-        options={targets}
-        onChange={(code) => {
-          setTarget(code);
-          persist(source, code);
-        }}
+        options={languages.filter((language) => language.isTarget)}
+        onChange={(code) => update({ source, target: code })}
       />
     </div>
   );
