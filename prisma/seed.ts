@@ -84,7 +84,13 @@ async function main() {
         ? null
         : new Date(now - lesson.lastOpenedDaysAgo * DAY_MS);
 
+    // `updatedAt` is @updatedAt, so Prisma would stamp "now" on every row and
+    // the recency ordering would be meaningless. Set it explicitly instead.
+    const updatedAt = new Date(now - lesson.updatedDaysAgo * DAY_MS);
+
     const data = {
+      updatedAt,
+      createdAt: updatedAt,
       subject: lesson.subject,
       grade: lesson.grade,
       topic: lesson.topic,

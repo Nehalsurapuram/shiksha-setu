@@ -21,6 +21,9 @@ export type SampleLesson = {
   isOfflinePinned: boolean;
   /** Days before seed time that the teacher last opened this lesson. */
   lastOpenedDaysAgo: number | null;
+  /** Days before seed time this lesson was last edited. Staggered so the
+   *  "most recently updated first" ordering is actually visible. */
+  updatedDaysAgo: number;
 };
 
 export const SAMPLE_LESSONS: SampleLesson[] = [
@@ -34,6 +37,7 @@ export const SAMPLE_LESSONS: SampleLesson[] = [
     status: "READY",
     isOfflinePinned: true,
     lastOpenedDaysAgo: 0,
+    updatedDaysAgo: 0,
   },
   {
     title: "Counting to Twenty",
@@ -45,6 +49,7 @@ export const SAMPLE_LESSONS: SampleLesson[] = [
     status: "READY",
     isOfflinePinned: true,
     lastOpenedDaysAgo: 1,
+    updatedDaysAgo: 2,
   },
   {
     title: "Our Village",
@@ -56,6 +61,7 @@ export const SAMPLE_LESSONS: SampleLesson[] = [
     status: "READY",
     isOfflinePinned: false,
     lastOpenedDaysAgo: 3,
+    updatedDaysAgo: 4,
   },
   {
     title: "Water",
@@ -67,6 +73,7 @@ export const SAMPLE_LESSONS: SampleLesson[] = [
     status: "DRAFT",
     isOfflinePinned: false,
     lastOpenedDaysAgo: 6,
+    updatedDaysAgo: 9,
   },
   {
     title: "Animals Around Us",
@@ -78,6 +85,7 @@ export const SAMPLE_LESSONS: SampleLesson[] = [
     status: "DRAFT",
     isOfflinePinned: false,
     lastOpenedDaysAgo: null,
+    updatedDaysAgo: 13,
   },
   {
     title: "Sounds We Hear",
@@ -89,5 +97,6 @@ export const SAMPLE_LESSONS: SampleLesson[] = [
     status: "ARCHIVED",
     isOfflinePinned: false,
     lastOpenedDaysAgo: 21,
+    updatedDaysAgo: 27,
   },
 ];

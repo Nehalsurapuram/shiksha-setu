@@ -33,7 +33,11 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-30 flex min-h-16 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur sm:px-6">
-      <MobileNav />
+      <MobileNav
+        languages={languages}
+        defaultSource={defaultSource}
+        defaultTarget={defaultTarget}
+      />
 
       <div className="min-w-0 flex-1">
         <h1 className="truncate text-lg font-semibold tracking-tight">

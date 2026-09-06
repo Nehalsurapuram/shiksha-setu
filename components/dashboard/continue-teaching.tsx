@@ -82,18 +82,20 @@ export function ContinueTeaching({
               {lesson.isSample ? <SampleBadge /> : null}
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2 pt-1">
-              <Button asChild size="sm" className="flex-1 min-w-24">
+            {/* mt-auto pins the actions to the card's bottom edge, so they line
+                up across cards whose text wraps to different heights. */}
+            <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
+              <Button asChild size="sm">
                 <Link href="/lessons">Open</Link>
               </Button>
-              <Button asChild size="sm" variant="outline" className="flex-1 min-w-24">
+              <Button asChild size="sm" variant="outline">
                 <Link href="/translator">Translate</Link>
               </Button>
               <Button
                 asChild
                 size="sm"
                 variant="outline"
-                className="flex-1 min-w-full sm:min-w-24"
+                className="col-span-2"
               >
                 <Link href="/worksheets">Generate materials</Link>
               </Button>
