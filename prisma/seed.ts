@@ -4,6 +4,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 
 import { LANGUAGES } from "../lib/languages";
+import { SAMPLE_LESSONS } from "../lib/sample-lessons";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -57,7 +58,7 @@ async function main() {
     where: { code: "sat-IN" },
   });
 
-  await prisma.user.upsert({
+  const teacher = await prisma.user.upsert({
     where: { email: "teacher@shikshasetu.local" },
     update: {},
     create: {
@@ -70,6 +71,48 @@ async function main() {
     },
   });
   console.log("Seeded demo school and teacher.");
+
+  // Sample lessons, so the dashboard reads real rows instead of hard-coded
+  // numbers. Marked isSample so every screen can label them as such. No
+  // Translation rows are created: nothing has actually been translated.
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const now = Date.now();
+
+  for (const lesson of SAMPLE_LESSONS) {
+    const lastOpenedAt =
+      lesson.lastOpenedDaysAgo === null
+        ? null
+        : new Date(now - lesson.lastOpenedDaysAgo * DAY_MS);
+
+    const data = {
+      subject: lesson.subject,
+      grade: lesson.grade,
+      topic: lesson.topic,
+      sourceText: lesson.sourceText,
+      status: lesson.status,
+      isOfflinePinned: lesson.isOfflinePinned,
+      isSample: true,
+      lastOpenedAt,
+      authorId: teacher.id,
+      schoolId: school.id,
+      sourceLanguageId: hindi.id,
+      targetLanguageId: santhali.id,
+    };
+
+    // Lesson has no natural unique key, so match on the sample's title within
+    // this seeded teacher's own lessons to keep re-seeding idempotent.
+    const existing = await prisma.lesson.findFirst({
+      where: { title: lesson.title, authorId: teacher.id, isSample: true },
+      select: { id: true },
+    });
+
+    if (existing) {
+      await prisma.lesson.update({ where: { id: existing.id }, data });
+    } else {
+      await prisma.lesson.create({ data: { ...data, title: lesson.title } });
+    }
+  }
+  console.log(`Seeded ${SAMPLE_LESSONS.length} sample lessons.`);
 }
 
 main()

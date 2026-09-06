@@ -194,8 +194,14 @@ model Lesson {
   sourceText      String       @db.Text
   status          LessonStatus @default(DRAFT)
   isOfflinePinned Boolean      @default(false)
+  /// Seeded demo content, not a teacher's own work. The UI labels these so a
+  /// populated-looking dashboard is never mistaken for real classroom history.
+  isSample        Boolean      @default(false)
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
+  /// When a teacher last opened this lesson. Drives "Continue teaching";
+  /// null means it has never been opened.
+  lastOpenedAt    DateTime?
 
   authorId String
   author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
@@ -219,6 +225,7 @@ model Lesson {
   @@index([schoolId])
   @@index([status])
   @@index([grade, subject])
+  @@index([lastOpenedAt])
 }
 
 model Translation {
