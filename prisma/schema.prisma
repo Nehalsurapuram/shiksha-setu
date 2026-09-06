@@ -1,0 +1,473 @@
+// ShikshaSetu AI - Phase 1 data model
+// MTB-MLE Teacher Assistant. Initial pair: Hindi (hi-IN) -> Santhali (sat-IN).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------- enums
+
+enum UserRole {
+  TEACHER
+  HEAD_TEACHER
+  COORDINATOR
+  ADMIN
+}
+
+enum LanguageStatus {
+  ACTIVE
+  PLANNED
+  DEPRECATED
+}
+
+enum LanguageScript {
+  DEVANAGARI
+  OL_CHIKI
+  LATIN
+  ODIA
+  BENGALI
+}
+
+enum LessonStatus {
+  DRAFT
+  READY
+  ARCHIVED
+}
+
+enum TranslationSource {
+  SARVAM
+  OPENAI
+  GLOSSARY
+  HUMAN
+  DEMO
+}
+
+enum ReviewStatus {
+  UNREVIEWED
+  APPROVED
+  CORRECTED
+  REJECTED
+}
+
+enum AudioKind {
+  LESSON_NARRATION
+  WORD_PRONUNCIATION
+  TEACHER_RECORDING
+  TTS_OUTPUT
+}
+
+enum AssessmentKind {
+  ORAL
+  WRITTEN
+  PICTURE_BASED
+  LISTENING
+}
+
+enum WorksheetKind {
+  MATCHING
+  FILL_IN_BLANKS
+  READING
+  PICTURE_LABELLING
+  WORD_HUNT
+}
+
+enum SyncStatus {
+  PENDING
+  IN_PROGRESS
+  SYNCED
+  FAILED
+  CONFLICT
+}
+
+enum SyncOperation {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+// ---------------------------------------------------------------- core
+
+model School {
+  id        String   @id @default(cuid())
+  name      String
+  udiseCode String?  @unique
+  village   String?
+  block     String?
+  district  String?
+  state     String?
+  pincode   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users            User[]
+  lessons          Lesson[]
+  analyticsEvents  AnalyticsEvent[]
+  learningOutcomes LearningOutcome[]
+
+  @@index([district, block])
+  @@index([state])
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String?
+  role         UserRole  @default(TEACHER)
+  phone        String?
+  isActive     Boolean   @default(true)
+  lastSeenAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  schoolId String?
+  school   School? @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+
+  // Preferred classroom language pair
+  sourceLanguageId String?
+  sourceLanguage   Language? @relation("UserSourceLanguage", fields: [sourceLanguageId], references: [id], onDelete: SetNull)
+  targetLanguageId String?
+  targetLanguage   Language? @relation("UserTargetLanguage", fields: [targetLanguageId], references: [id], onDelete: SetNull)
+
+  lessons          Lesson[]
+  translations     Translation[]
+  glossaryTerms    GlossaryTerm[]
+  worksheets       Worksheet[]
+  flashcards       Flashcard[]
+  assessments      Assessment[]
+  audios           Audio[]
+  corrections      TranslationCorrection[]
+  learningOutcomes LearningOutcome[]
+  syncItems        SyncItem[]
+  analyticsEvents  AnalyticsEvent[]
+
+  @@index([schoolId])
+  @@index([role])
+}
+
+model Language {
+  id         String         @id @default(cuid())
+  code       String         @unique // BCP-47-ish, e.g. hi-IN, sat-IN
+  name       String // English name, e.g. "Santhali"
+  nativeName String // Endonym in its own script
+  script     LanguageScript
+  status     LanguageStatus @default(PLANNED)
+  direction  String         @default("ltr")
+  isSource   Boolean        @default(false) // usable as instruction/source language
+  isTarget   Boolean        @default(false) // usable as mother-tongue/target language
+  sortOrder  Int            @default(0)
+  notes      String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  usersAsSource User[] @relation("UserSourceLanguage")
+  usersAsTarget User[] @relation("UserTargetLanguage")
+
+  lessonsAsSource Lesson[] @relation("LessonSourceLanguage")
+  lessonsAsTarget Lesson[] @relation("LessonTargetLanguage")
+
+  translationsAsSource Translation[] @relation("TranslationSourceLanguage")
+  translationsAsTarget Translation[] @relation("TranslationTargetLanguage")
+
+  glossaryAsSource GlossaryTerm[] @relation("GlossarySourceLanguage")
+  glossaryAsTarget GlossaryTerm[] @relation("GlossaryTargetLanguage")
+
+  flashcards Flashcard[]
+  audios     Audio[]
+
+  @@index([status])
+  @@index([isTarget])
+}
+
+// ---------------------------------------------------------------- content
+
+model Lesson {
+  id              String       @id @default(cuid())
+  title           String
+  subject         String?
+  grade           Int?
+  topic           String?
+  sourceText      String       @db.Text
+  status          LessonStatus @default(DRAFT)
+  isOfflinePinned Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  schoolId String?
+  school   School? @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+
+  sourceLanguageId String
+  sourceLanguage   Language @relation("LessonSourceLanguage", fields: [sourceLanguageId], references: [id])
+  targetLanguageId String
+  targetLanguage   Language @relation("LessonTargetLanguage", fields: [targetLanguageId], references: [id])
+
+  translations     Translation[]
+  worksheets       Worksheet[]
+  flashcards       Flashcard[]
+  assessments      Assessment[]
+  audios           Audio[]
+  learningOutcomes LearningOutcome[]
+
+  @@index([authorId])
+  @@index([schoolId])
+  @@index([status])
+  @@index([grade, subject])
+}
+
+model Translation {
+  id           String            @id @default(cuid())
+  sourceText   String            @db.Text
+  targetText   String            @db.Text
+  source       TranslationSource @default(DEMO)
+  model        String?
+  confidence   Float?
+  reviewStatus ReviewStatus      @default(UNREVIEWED)
+  contentHash  String // hash of source text + language pair, for dedupe and offline cache lookups
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  lessonId String?
+  lesson   Lesson? @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  sourceLanguageId String
+  sourceLanguage   Language @relation("TranslationSourceLanguage", fields: [sourceLanguageId], references: [id])
+  targetLanguageId String
+  targetLanguage   Language @relation("TranslationTargetLanguage", fields: [targetLanguageId], references: [id])
+
+  corrections TranslationCorrection[]
+  audios      Audio[]
+
+  @@unique([contentHash, sourceLanguageId, targetLanguageId])
+  @@index([lessonId])
+  @@index([reviewStatus])
+  @@index([createdById])
+}
+
+model TranslationCorrection {
+  id            String   @id @default(cuid())
+  correctedText String   @db.Text
+  reason        String?
+  isAccepted    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  translationId String
+  translation   Translation @relation(fields: [translationId], references: [id], onDelete: Cascade)
+
+  correctedById String
+  correctedBy   User   @relation(fields: [correctedById], references: [id], onDelete: Cascade)
+
+  @@index([translationId])
+  @@index([correctedById])
+  @@index([isAccepted])
+}
+
+model GlossaryTerm {
+  id           String   @id @default(cuid())
+  sourceTerm   String
+  targetTerm   String
+  domain       String? // e.g. "science", "maths", "civics"
+  partOfSpeech String?
+  notes        String?
+  isVerified   Boolean  @default(false)
+  usageCount   Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  sourceLanguageId String
+  sourceLanguage   Language @relation("GlossarySourceLanguage", fields: [sourceLanguageId], references: [id])
+  targetLanguageId String
+  targetLanguage   Language @relation("GlossaryTargetLanguage", fields: [targetLanguageId], references: [id])
+
+  @@unique([sourceTerm, sourceLanguageId, targetLanguageId])
+  @@index([domain])
+  @@index([isVerified])
+}
+
+model Worksheet {
+  id           String        @id @default(cuid())
+  title        String
+  kind         WorksheetKind @default(MATCHING)
+  grade        Int?
+  instructions String?       @db.Text
+  content      Json // question and answer payload
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  lessonId String?
+  lesson   Lesson? @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([lessonId])
+  @@index([createdById])
+  @@index([kind])
+}
+
+model Flashcard {
+  id              String   @id @default(cuid())
+  frontText       String
+  backText        String
+  imageUrl        String?
+  exampleSentence String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  lessonId String?
+  lesson   Lesson? @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  languageId String
+  language   Language @relation(fields: [languageId], references: [id])
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  audios Audio[]
+
+  @@index([lessonId])
+  @@index([languageId])
+  @@index([createdById])
+}
+
+model Assessment {
+  id        String         @id @default(cuid())
+  title     String
+  kind      AssessmentKind @default(ORAL)
+  grade     Int?
+  questions Json
+  maxScore  Int            @default(10)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  lessonId String?
+  lesson   Lesson? @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  learningOutcomes LearningOutcome[]
+
+  @@index([lessonId])
+  @@index([createdById])
+  @@index([kind])
+}
+
+model Audio {
+  id              String    @id @default(cuid())
+  kind            AudioKind @default(TTS_OUTPUT)
+  url             String
+  transcript      String?   @db.Text
+  durationMs      Int?
+  mimeType        String    @default("audio/mpeg")
+  sizeBytes       Int?
+  isOfflineCached Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  languageId String
+  language   Language @relation(fields: [languageId], references: [id])
+
+  lessonId String?
+  lesson   Lesson? @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  translationId String?
+  translation   Translation? @relation(fields: [translationId], references: [id], onDelete: SetNull)
+
+  flashcardId String?
+  flashcard   Flashcard? @relation(fields: [flashcardId], references: [id], onDelete: Cascade)
+
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([lessonId])
+  @@index([languageId])
+  @@index([kind])
+}
+
+// ---------------------------------------------------------------- outcomes, sync, analytics
+
+model LearningOutcome {
+  id          String   @id @default(cuid())
+  code        String? // e.g. an NCERT learning-outcome code
+  description String   @db.Text
+  grade       Int?
+  subject     String?
+  score       Float?
+  observedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lessonId String?
+  lesson   Lesson? @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  assessmentId String?
+  assessment   Assessment? @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
+
+  schoolId String?
+  school   School? @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+
+  recordedById String
+  recordedBy   User   @relation(fields: [recordedById], references: [id], onDelete: Cascade)
+
+  @@index([lessonId])
+  @@index([schoolId])
+  @@index([grade, subject])
+}
+
+/// Outbox for offline-first clients: local mutations queued on the tablet
+/// while it has no connectivity, drained once the device is back online.
+model SyncItem {
+  id         String        @id @default(cuid())
+  deviceId   String
+  entityType String // "Lesson", "Translation", ...
+  entityId   String
+  operation  SyncOperation @default(CREATE)
+  status     SyncStatus    @default(PENDING)
+  payload    Json
+  attempts   Int           @default(0)
+  lastError  String?
+  clientTime DateTime // when the change happened on the tablet
+  syncedAt   DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, entityType, entityId, clientTime])
+  @@index([userId, status])
+  @@index([status, createdAt])
+}
+
+model AnalyticsEvent {
+  id         String   @id @default(cuid())
+  name       String // e.g. "translation.requested"
+  properties Json?
+  deviceId   String?
+  isOffline  Boolean  @default(false)
+  occurredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  schoolId String?
+  school   School? @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+
+  @@index([name, occurredAt])
+  @@index([userId])
+  @@index([schoolId])
+}
