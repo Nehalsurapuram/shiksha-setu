@@ -199,6 +199,13 @@ model Lesson {
   grade           Int?
   topic           String?
   sourceText      String       @db.Text
+  /// The mother-tongue version, when one has been produced.
+  translatedText  String?      @db.Text
+  /// Provenance of sourceText, so a teacher can see where the words came from:
+  /// a PDF text layer, OCR of a photo, a Word file, or typed by hand.
+  originalFileName String?
+  sourceFormat     String?
+  extractionMethod String?
   status          LessonStatus @default(DRAFT)
   isOfflinePinned Boolean      @default(false)
   /// Seeded demo content, not a teacher's own work. The UI labels these so a
@@ -227,6 +234,7 @@ model Lesson {
   assessments      Assessment[]
   audios           Audio[]
   learningOutcomes LearningOutcome[]
+  teachingPackage  TeachingPackage?
 
   @@index([authorId])
   @@index([schoolId])
@@ -549,4 +557,32 @@ model ClassroomMessage {
 
   @@index([sessionId, spokenAt])
   @@index([translationId])
+}
+
+
+/// The generated teaching material for a lesson.
+///
+///  holds the whole editable package as JSON rather than thirty
+/// columns: a teacher edits any part of it, and the shape will keep changing as
+/// the format is refined.  records that a human has been through it,
+/// which matters when judging whether generated text was ever reviewed.
+/// The generated teaching material for a lesson.
+///
+/// `content` holds the whole editable package as JSON rather than thirty
+/// columns: a teacher edits any part of it, and the shape will keep changing
+/// as the format is refined. `isEdited` records that a human has been through
+/// it, which matters when judging whether generated text was ever reviewed.
+model TeachingPackage {
+  id          String   @id @default(cuid())
+  content     Json
+  /// Which provider and model produced the first draft. Null once a teacher
+  /// has rewritten it enough that attributing it to a model would be wrong.
+  provider    String?
+  model       String?
+  isEdited    Boolean  @default(false)
+  generatedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lessonId String  @unique
+  lesson   Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 }

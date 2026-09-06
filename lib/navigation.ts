@@ -28,6 +28,13 @@ export const NAV_ITEMS: NavItem[] = [
     description: "Speak a sentence, hear it back in the mother tongue.",
   },
   {
+    label: "Classroom",
+    href: "/classroom",
+    icon: "MessagesSquare",
+    phase: 1,
+    description: "Live two-way conversation between teacher and student.",
+  },
+  {
     label: "Lessons",
     href: "/lessons",
     icon: "BookOpen",

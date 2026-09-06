@@ -22,6 +22,12 @@ export type ChatMessage = {
   at: string;
   latencyMs: number | null;
   isDemo: boolean;
+  /**
+   * Which side of the room this belongs to. A translation sits with the person
+   * it is *for*, not the person who spoke, so each side can follow its own
+   * column down the screen.
+   */
+  side: "teacher" | "student";
 };
 
 const TIME_FORMAT = new Intl.DateTimeFormat("en-IN", {
@@ -41,8 +47,8 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
 
   const meta = ROLE_META[message.role];
   const Icon = meta.icon;
-  // Teacher on the left, student on the right; the AI sits under whoever spoke.
-  const alignRight = message.role === "student";
+  // Teacher column on the left, student column on the right.
+  const alignRight = message.side === "student";
 
   return (
     <li className={cn("flex", alignRight ? "justify-end" : "justify-start")}>

@@ -6,14 +6,18 @@ planned.
 
 Built to run on low-cost Android tablets with offline-first classroom usage.
 
-> **Status: translation and voice input are live.** Hindi → Santhali
-> translation runs against Sarvam AI with history and teacher corrections
-> ([docs/TRANSLATION.md](docs/TRANSLATION.md)), and the Voice Assistant
-> transcribes Hindi speech and translates it ([docs/VOICE.md](docs/VOICE.md)).
+> **Status: translation, voice and the two-way classroom are live.** Hindi →
+> Santhali translation runs against Sarvam AI with history and teacher
+> corrections ([docs/TRANSLATION.md](docs/TRANSLATION.md)), the Voice Assistant
+> transcribes Hindi speech and translates it ([docs/VOICE.md](docs/VOICE.md)),
+> and the Interactive Classroom carries a conversation both ways
+> ([docs/CLASSROOM.md](docs/CLASSROOM.md)).
 >
 > **Santhali audio is not available.** Sarvam's speech-to-text supports
 > Santhali; its text-to-speech does not, so the read-aloud step has no provider
-> and the app says so rather than substituting another language's voice.
+> and the app says so rather than substituting another language's voice. Hindi
+> audio does work, so in the classroom a student's reply can be read aloud to
+> the teacher even though the teacher's cannot be read to the student.
 >
 > Content generation and offline sync are **not implemented**; see
 > [docs/PHASE-1.md](docs/PHASE-1.md) and
