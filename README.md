@@ -19,7 +19,13 @@ Built to run on low-cost Android tablets with offline-first classroom usage.
 > audio does work, so in the classroom a student's reply can be read aloud to
 > the teacher even though the teacher's cannot be read to the student.
 >
-> Content generation and offline sync are **not implemented**; see
+> Lesson upload and AI lesson generation are built
+> ([docs/LESSONS.md](docs/LESSONS.md)): PDF, Word, photo and text files are
+> read, and a teaching package is generated and translated. It needs an
+> `OPENAI_API_KEY` with credit; without one, uploading and saving still work
+> and no lesson content is invented.
+>
+> Worksheets, flashcards, assessments and offline sync are **not implemented**; see
 > [docs/PHASE-1.md](docs/PHASE-1.md) and
 > [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md). Every unbuilt screen says so
 > plainly rather than showing sample output.
