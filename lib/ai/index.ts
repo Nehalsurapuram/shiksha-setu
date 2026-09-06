@@ -1,6 +1,6 @@
 import "server-only";
 
-import { env, providerStatus } from "@/lib/env";
+import { env, getProviderStatus } from "@/lib/env";
 import { NotImplementedError, isSarvamConfigured } from "@/lib/sarvam/client";
 
 /**
@@ -38,7 +38,7 @@ export function getProviderReadiness(): ProviderReadiness[] {
       role: "llm",
       roleLabel: "content generation",
       selected: env.LLM_PROVIDER === "openai",
-      credentialPresent: providerStatus.openai,
+      credentialPresent: getProviderStatus().openai,
     },
   ];
 }
