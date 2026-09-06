@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ShikshaSetu AI
 
-## Getting Started
+An AI-powered Mother Tongue-Based Multilingual Education (MTB-MLE) teacher
+assistant. Initial language pair: **Hindi → Santhali**. Ho and Mundari are
+planned.
 
-First, run the development server:
+Built to run on low-cost Android tablets with offline-first classroom usage.
+
+> **Status: Phase 1 (foundation).** The database, language data, application
+> shell and PWA skeleton are in place. Translation, voice, and content
+> generation are **not implemented** — see [docs/PHASE-1.md](docs/PHASE-1.md).
+> Every unbuilt screen says so plainly rather than showing sample output.
+
+## Stack
+
+Next.js 16 (App Router) · TypeScript · Tailwind CSS v4 · shadcn/ui-style
+components · Prisma 7 · PostgreSQL · PWA-ready
+
+## Getting started
 
 ```bash
+cp .env.example .env      # fill in DATABASE_URL at minimum
+npm install
+npm run db:migrate
+npm run db:seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open <http://localhost:3000>. Health check: `GET /api/health`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Script | Does |
+| --- | --- |
+| `npm run dev` | Development server |
+| `npm run build` / `npm start` | Production build and serve (service worker is active here) |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | ESLint |
+| `npm run db:migrate` | Create/apply a migration in development |
+| `npm run db:deploy` | Apply migrations in production |
+| `npm run db:seed` | Load languages, demo school and teacher |
+| `npm run db:studio` | Prisma Studio |
 
-## Learn More
+## Layout
 
-To learn more about Next.js, take a look at the following resources:
+```
+app/            routes — landing page, (app) shell group, api/
+components/     ui/ (primitives), layout/ (shell), shared/ (page-level)
+lib/            ai/ sarvam/ database/ offline/ + env, languages, navigation
+prisma/         schema, migrations, seed
+docs/           phase notes
+types/          shared types
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Secrets
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Never commit `.env`. Nothing in the environment is prefixed `NEXT_PUBLIC_`:
+API keys are server-only, enforced by `server-only` in `lib/env.ts`.

@@ -3,32 +3,37 @@
 import { useEffect, useState } from "react";
 
 import { StatusRow } from "@/components/shared/status-row";
-import { getDeviceId } from "@/lib/offline/device";
+import { useDeviceId } from "@/lib/offline/use-device-id";
 import { useOnlineStatus } from "@/lib/offline/use-online-status";
+
+async function checkServiceWorker(): Promise<boolean> {
+  if (!("serviceWorker" in navigator)) return false;
+  try {
+    return Boolean(await navigator.serviceWorker.getRegistration());
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Reports what is true about *this* tablet. All of it is browser state, so it
- * is read after mount rather than rendered on the server.
+ * is unavailable during server rendering.
  */
 export function DevicePanel() {
   const { isOnline, hasChecked } = useOnlineStatus();
-  const [deviceId, setDeviceId] = useState<string | null>(null);
+  const deviceId = useDeviceId();
   const [serviceWorkerReady, setServiceWorkerReady] = useState<boolean | null>(
     null,
   );
 
   useEffect(() => {
-    setDeviceId(getDeviceId());
-
-    if (!("serviceWorker" in navigator)) {
-      setServiceWorkerReady(false);
-      return;
-    }
-
-    navigator.serviceWorker
-      .getRegistration()
-      .then((registration) => setServiceWorkerReady(Boolean(registration)))
-      .catch(() => setServiceWorkerReady(false));
+    let cancelled = false;
+    checkServiceWorker().then((ready) => {
+      if (!cancelled) setServiceWorkerReady(ready);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (!hasChecked) {
@@ -63,9 +68,11 @@ export function DevicePanel() {
         ok={serviceWorkerReady === true}
         label="Offline app shell"
         detail={
-          serviceWorkerReady === true
-            ? "The service worker is registered, so the app opens without a network."
-            : "Not registered. The service worker only runs in a production build, not in `next dev`."
+          serviceWorkerReady === null
+            ? "Checking whether the service worker is registered…"
+            : serviceWorkerReady
+              ? "The service worker is registered, so the app opens without a network."
+              : "Not registered. The service worker only runs in a production build, not in next dev."
         }
       />
     </ul>

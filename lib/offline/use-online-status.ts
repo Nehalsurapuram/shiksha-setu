@@ -1,28 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+
+import { useHydrated } from "@/lib/offline/use-hydrated";
+
+function subscribe(onStoreChange: () => void): () => void {
+  window.addEventListener("online", onStoreChange);
+  window.addEventListener("offline", onStoreChange);
+  return () => {
+    window.removeEventListener("online", onStoreChange);
+    window.removeEventListener("offline", onStoreChange);
+  };
+}
+
+const getSnapshot = () => navigator.onLine;
+
+// The server has no opinion on this tablet's connectivity, so it renders the
+// optimistic value and the client corrects it on hydration.
+const getServerSnapshot = () => true;
 
 /**
- * Tracks browser connectivity. Starts optimistic (true) so server and client
- * render the same markup on the first pass, then corrects itself on mount.
+ * Tracks browser connectivity by subscribing to the platform's own events
+ * rather than mirroring them into React state.
+ *
+ * `hasChecked` is false until hydration finishes; until then `isOnline` is the
+ * optimistic default, not a real reading.
  */
 export function useOnlineStatus(): { isOnline: boolean; hasChecked: boolean } {
-  const [isOnline, setIsOnline] = useState(true);
-  const [hasChecked, setHasChecked] = useState(false);
+  const isOnline = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
 
-  useEffect(() => {
-    const update = () => setIsOnline(navigator.onLine);
-
-    update();
-    setHasChecked(true);
-
-    window.addEventListener("online", update);
-    window.addEventListener("offline", update);
-    return () => {
-      window.removeEventListener("online", update);
-      window.removeEventListener("offline", update);
-    };
-  }, []);
-
-  return { isOnline, hasChecked };
+  return { isOnline, hasChecked: useHydrated() };
 }
