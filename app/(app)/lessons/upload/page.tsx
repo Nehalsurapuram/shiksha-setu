@@ -45,8 +45,11 @@ export default async function LessonUploadPage() {
         title="Upload a lesson"
         description={`Turn a textbook page into a teaching package: read the text, check what was found, then generate material in ${pair.source.name} and ${pair.target.name}.`}
         action={
+          // "Configured", not "ready": a key being present says nothing about
+          // whether the account behind it has credit or the model is reachable.
+          // That is only known once a request is made.
           llmConfigured ? (
-            <Badge variant="success">Generation ready</Badge>
+            <Badge variant="outline">Generation configured</Badge>
           ) : (
             <Badge variant="warning">Generation unavailable</Badge>
           )
