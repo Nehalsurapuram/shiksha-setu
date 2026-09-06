@@ -32,10 +32,30 @@ honestly shows zeros rather than sample data.
 | --- | --- |
 | PostgreSQL + Prisma | 14 models, migrated, indexed |
 | Language seed data | Hindi and Santhali active; Ho and Mundari planned |
-| App shell | Sidebar, header, responsive/tablet layout, 11 routes |
-| Landing page | Static, at `/` |
+| Sample lessons | 6 seeded lessons, flagged `isSample` and labelled in the UI |
+| App shell | Sidebar (12 routes), header, responsive/tablet layout |
+| Dashboard | Quick actions, DB-counted stats, recent lessons, continue teaching |
+| Language selector | Header + nav drawer; planned languages listed but disabled |
+| Landing page | Static marketing site, at `/` |
 | PWA | Manifest, icons, app-shell service worker, offline fallback page |
 | API | `GET /api/health` only |
+
+### Sample lessons
+
+The dashboard reads real rows rather than hard-coded numbers, so the seed loads
+six lessons (`lib/sample-lessons.ts`). They are written with `isSample: true`
+and every screen that shows one renders a **Sample** badge, so a populated
+dashboard is never mistaken for a teacher's real classroom history.
+
+No `Translation` rows are seeded. Each lesson carries its Hindi source text and
+its configured language pair — a fact about how the lesson is set up, not a
+claim that anything has been translated. Seeding invented Santhali would put
+text in front of a teacher that looks like output and is not, which is the one
+thing this project must not do.
+
+That is also why three of the four dashboard counters read zero: nothing has
+translated, generated or recorded anything yet. Zero is the correct answer, and
+the dashboard says so under the numbers.
 
 ## What is deliberately absent
 
