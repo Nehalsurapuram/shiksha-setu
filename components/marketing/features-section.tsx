@@ -27,9 +27,19 @@ export function FeaturesSection() {
                   <MarketingIcon name={feature.icon} className="size-6" />
                 </span>
                 <Badge
-                  variant={feature.state === "in-progress" ? "outline" : "secondary"}
+                  variant={
+                    feature.state === "built"
+                      ? "success"
+                      : feature.state === "in-progress"
+                        ? "outline"
+                        : "secondary"
+                  }
                 >
-                  {feature.state === "in-progress" ? "In progress" : "Planned"}
+                  {feature.state === "built"
+                    ? "Built"
+                    : feature.state === "in-progress"
+                      ? "In progress"
+                      : "Planned"}
                 </Badge>
               </div>
 
@@ -46,8 +56,8 @@ export function FeaturesSection() {
 
       <Reveal delay={120}>
         <p className="mt-8 text-center text-sm text-muted-foreground">
-          Nothing above calls a model today. The data model, language reference
-          data and offline shell behind these features are built and running.
+          Translation is live and runs against Sarvam AI. The rest are not built
+          yet, and their screens say so rather than showing sample output.
         </p>
       </Reveal>
     </Section>

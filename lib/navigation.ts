@@ -17,7 +17,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Translator",
     href: "/translator",
     icon: "Languages",
-    phase: 2,
+    phase: 1,
     description: "Hindi to Santhali translation with a teacher-editable glossary.",
   },
   {

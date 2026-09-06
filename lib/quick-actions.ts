@@ -21,7 +21,7 @@ export const QUICK_ACTIONS: QuickAction[] = [
     label: "Translate",
     href: "/translator",
     icon: "Languages",
-    phase: 2,
+    phase: 1,
     hint: "Hindi to Santhali",
   },
   {

@@ -4,11 +4,11 @@ import { env, providerStatus } from "@/lib/env";
 import { NotImplementedError, isSarvamConfigured } from "@/lib/sarvam/client";
 
 /**
- * Provider registry - PHASE 2.
+ * Provider registry.
  *
- * Phase 1 only reports which providers are *configured*. It never calls one.
- * `getTranslationProvider()` returns the selected name so Settings can show the
- * truth; the generation entry points below all throw.
+ * Reports which providers are configured, for Settings and the dashboard.
+ * Translation is implemented — see `TranslationService`. The generation entry
+ * points below still throw rather than returning invented content.
  */
 export type ProviderName = "sarvam" | "openai";
 
@@ -48,19 +48,19 @@ export function isDemoMode(): boolean {
 }
 
 export async function generateLesson(): Promise<never> {
-  throw new NotImplementedError("Lesson generation", 2);
+  throw new NotImplementedError("Lesson generation");
 }
 
 export async function generateWorksheet(): Promise<never> {
-  throw new NotImplementedError("Worksheet generation", 2);
+  throw new NotImplementedError("Worksheet generation");
 }
 
 export async function generateFlashcards(): Promise<never> {
-  throw new NotImplementedError("Flashcard generation", 2);
+  throw new NotImplementedError("Flashcard generation");
 }
 
 export async function generateAssessment(): Promise<never> {
-  throw new NotImplementedError("Assessment generation", 3);
+  throw new NotImplementedError("Assessment generation");
 }
 
 export { NotImplementedError };

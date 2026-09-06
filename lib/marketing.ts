@@ -14,7 +14,7 @@ export const BRAND = {
   secondary: "Teach in the language every child understands.",
 } as const;
 
-export type BuildState = "in-progress" | "planned";
+export type BuildState = "built" | "in-progress" | "planned";
 
 export type Feature = {
   title: string;
@@ -56,9 +56,9 @@ export const FEATURES: Feature[] = [
   {
     title: "Hindi → Santhali Translation",
     description:
-      "Translate lesson text into Santhali in Ol Chiki script, with a teacher-editable glossary so a correction made once is reused everywhere.",
+      "Translate lesson text into Santhali in Ol Chiki script through Sarvam AI, then correct it. Every correction is kept alongside the original.",
     icon: "Languages",
-    state: "in-progress",
+    state: "built",
     phase: 3,
   },
   {
