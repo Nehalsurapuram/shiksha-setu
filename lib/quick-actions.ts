@@ -33,9 +33,9 @@ export const QUICK_ACTIONS: QuickAction[] = [
   },
   {
     label: "Upload Lesson",
-    href: "/lessons",
+    href: "/lessons/upload",
     icon: "Upload",
-    phase: 2,
+    phase: 1,
     hint: "Text or textbook PDF",
   },
   {
