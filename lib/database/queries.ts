@@ -177,6 +177,51 @@ export async function listContinueTeaching(teacherId: string, take = 3) {
   });
 }
 
+const TRANSLATION_SELECT = {
+  id: true,
+  sourceText: true,
+  targetText: true,
+  source: true,
+  model: true,
+  confidence: true,
+  reviewStatus: true,
+  createdAt: true,
+  updatedAt: true,
+  sourceLanguage: { select: { code: true, name: true, script: true } },
+  targetLanguage: { select: { code: true, name: true, script: true } },
+  corrections: {
+    orderBy: { createdAt: "desc" },
+    take: 1,
+    select: {
+      id: true,
+      correctedText: true,
+      reason: true,
+      createdAt: true,
+    },
+  },
+} as const;
+
+export type TranslationRecord = Awaited<
+  ReturnType<typeof listTranslationHistory>
+>[number];
+
+/** Translation history for the translator page. */
+export async function listTranslationHistory(userId: string, take = 20) {
+  return prisma.translation.findMany({
+    where: { createdById: userId },
+    orderBy: { updatedAt: "desc" },
+    take,
+    select: TRANSLATION_SELECT,
+  });
+}
+
+export async function getTranslation(id: string) {
+  return prisma.translation.findUnique({
+    where: { id },
+    select: TRANSLATION_SELECT,
+  });
+}
+
 /** Cheap liveness probe used by the dashboard and /api/health. */
 export async function checkDatabase(): Promise<
   { ok: true } | { ok: false; error: string }
