@@ -13,6 +13,7 @@ import {
 } from "@/lib/ai/teaching-package";
 import { env } from "@/lib/env";
 import { OpenAILLMProvider } from "@/lib/openai/OpenAILLMProvider";
+import { SarvamLLMProvider } from "@/lib/sarvam/SarvamLLMProvider";
 
 export type LessonContext = {
   sourceText: string;
@@ -189,7 +190,18 @@ function objectSchema(properties: Record<string, unknown>) {
   };
 }
 
+/**
+ * Picks the generation provider from configuration.
+ *
+ * `LLM_PROVIDER=sarvam` runs lesson generation on the same Sarvam account that
+ * already pays for translation and speech, which avoids needing a second
+ * funded provider. It is a smaller model than OpenAI's and noticeably more
+ * verbose, so the choice is left explicit rather than being guessed at.
+ */
 export function selectLLMProvider(): LLMProvider {
+  if (env.LLM_PROVIDER === "sarvam" && env.SARVAM_API_KEY) {
+    return new SarvamLLMProvider(env.SARVAM_API_KEY);
+  }
   if (env.LLM_PROVIDER === "openai" && env.OPENAI_API_KEY) {
     return new OpenAILLMProvider(env.OPENAI_API_KEY);
   }

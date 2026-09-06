@@ -1,6 +1,6 @@
 import "server-only";
 
-export type LLMProviderId = "openai" | "demo";
+export type LLMProviderId = "openai" | "sarvam" | "demo";
 
 export type JsonSchema = Record<string, unknown>;
 
