@@ -210,25 +210,37 @@
 }
 
 /**
- * Scroll reveal.
+ * Entrance animation for content that is already on screen at load.
  *
- * Content is hidden ONLY while `data-reveal-ready` is on <html>, which a tiny
- * inline script in the layout sets before first paint and removes again if the
- * page fails to hydrate. Reveal animations are decoration; the text underneath
- * them is the entire point of the page, so it must never depend on JavaScript
- * succeeding. The failure modes this covers:
- *
- *  - JavaScript disabled or blocked -> attribute never set, content visible.
- *  - Script runs but React never hydrates -> failsafe removes the attribute.
- *  - No IntersectionObserver (old Android WebViews) -> the component reveals
- *    immediately on mount.
+ * Pure CSS on purpose: it runs whether or not JavaScript ever executes, and it
+ * always finishes. Nothing above the fold may depend on hydration to become
+ * readable — a teacher on a weak rural connection would otherwise be looking
+ * at a blank screen for as long as the bundle takes to arrive.
  */
-html[data-reveal-ready] [data-reveal] {
+.ss-enter {
+  animation: ss-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--enter-delay, 0ms);
+}
+
+/**
+ * Scroll reveal, for content below the fold only.
+ *
+ * The server renders no `data-reveal` attribute at all, so the markup is
+ * visible by default. After mount, Reveal measures each element and only hides
+ * the ones the reader cannot see yet. Consequences, all deliberate:
+ *
+ *  - JavaScript disabled, blocked, or still downloading -> nothing is ever
+ *    hidden, and the whole page reads normally.
+ *  - No IntersectionObserver (old Android WebViews) -> same.
+ *  - Hydrated -> only off-screen content animates, so there is no flash of
+ *    content disappearing and re-entering.
+ */
+[data-reveal="hidden"] {
   opacity: 0;
   transform: translateY(1rem);
 }
 
-html[data-reveal-ready] [data-reveal][data-visible="true"] {
+[data-reveal="shown"] {
   animation: ss-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   animation-delay: var(--reveal-delay, 0ms);
 }
@@ -266,8 +278,9 @@ html[data-reveal-ready] [data-reveal][data-visible="true"] {
     scroll-behavior: auto !important;
   }
 
-  html[data-reveal-ready] [data-reveal] {
-    opacity: 1;
-    transform: none;
+  [data-reveal],
+  .ss-enter {
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
