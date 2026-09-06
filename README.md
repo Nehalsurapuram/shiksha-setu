@@ -6,15 +6,23 @@ planned.
 
 Built to run on low-cost Android tablets with offline-first classroom usage.
 
-> **Status: translation is live.** Hindi → Santhali translation runs against
-> Sarvam AI, with history and teacher corrections — see
-> [docs/TRANSLATION.md](docs/TRANSLATION.md). Voice, content generation and
-> offline sync are **not implemented**; see [docs/PHASE-1.md](docs/PHASE-1.md)
-> and [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md). Every unbuilt screen says
-> so plainly rather than showing sample output.
+> **Status: translation and voice input are live.** Hindi → Santhali
+> translation runs against Sarvam AI with history and teacher corrections
+> ([docs/TRANSLATION.md](docs/TRANSLATION.md)), and the Voice Assistant
+> transcribes Hindi speech and translates it ([docs/VOICE.md](docs/VOICE.md)).
 >
-> Without a `SARVAM_API_KEY` the translator runs in demo mode, which returns a
-> labelled placeholder — never invented Santhali.
+> **Santhali audio is not available.** Sarvam's speech-to-text supports
+> Santhali; its text-to-speech does not, so the read-aloud step has no provider
+> and the app says so rather than substituting another language's voice.
+>
+> Content generation and offline sync are **not implemented**; see
+> [docs/PHASE-1.md](docs/PHASE-1.md) and
+> [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md). Every unbuilt screen says so
+> plainly rather than showing sample output.
+>
+> Without a `SARVAM_API_KEY` the translator and voice assistant run in demo
+> mode, returning labelled placeholders — never invented Santhali, and never a
+> fabricated transcript.
 
 ## Stack
 
