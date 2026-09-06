@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ShikshaSetu AI">
+  <!-- Maskable: artwork stays inside the 80% safe zone so Android can crop it
+       to any mask (circle, squircle, rounded square) without clipping the mark. -->
+  <rect width="512" height="512" fill="#0d7f8c" />
+  <g transform="translate(256 256) scale(0.62) translate(-256 -256)">
+    <g fill="none" stroke="#ffffff" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M256 150 L108 214 L256 278 L404 214 Z" fill="#ffffff" stroke="none" />
+      <path d="M154 240 v72 c0 34 46 62 102 62 s102 -28 102 -62 v-72" />
+      <path d="M404 214 v96" />
+    </g>
+  </g>
+</svg>
