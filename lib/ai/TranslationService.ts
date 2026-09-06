@@ -20,6 +20,15 @@ export type TranslateInput = {
   targetLanguage: string;
   /** Null when there is no teacher record; the row is still stored. */
   userId?: string | null;
+  /**
+   * Allow the mother tongue to act as the source, i.e. Santhali → Hindi.
+   *
+   * Off by default so the Translator keeps its one-way contract: a language of
+   * instruction translates into a mother tongue. The classroom turns this on
+   * because a child answering the teacher is the entire point of it, and the
+   * pair is the same configured pair read backwards — not an arbitrary one.
+   */
+  allowReverseDirection?: boolean;
 };
 
 export type TranslateOutcome = {
@@ -95,18 +104,33 @@ export class TranslationService {
       prisma.language.findUnique({ where: { code: input.targetLanguage } }),
     ]);
 
-    if (!source || source.status !== "ACTIVE" || !source.isSource) {
+    if (!source || source.status !== "ACTIVE") {
       throw new TranslationError(
         "UNSUPPORTED_LANGUAGE",
-        `${source?.name ?? input.sourceLanguage} is not available as a language of instruction yet.`,
+        `${source?.name ?? input.sourceLanguage} is not available yet.`,
         { status: 400 },
       );
     }
 
-    if (!target || target.status !== "ACTIVE" || !target.isTarget) {
+    if (!target || target.status !== "ACTIVE") {
       throw new TranslationError(
         "UNSUPPORTED_LANGUAGE",
-        `${target?.name ?? input.targetLanguage} is not available for translation yet.`,
+        `${target?.name ?? input.targetLanguage} is not available yet.`,
+        { status: 400 },
+      );
+    }
+
+    // Forward is instruction language → mother tongue. Reverse is the same
+    // configured pair read backwards, and only when the caller asked for it.
+    const isForward = source.isSource && target.isTarget;
+    const isReverse = source.isTarget && target.isSource;
+    const directionAllowed =
+      isForward || (Boolean(input.allowReverseDirection) && isReverse);
+
+    if (!directionAllowed) {
+      throw new TranslationError(
+        "UNSUPPORTED_LANGUAGE",
+        `Translating ${source.name} to ${target.name} is not enabled here.`,
         { status: 400 },
       );
     }

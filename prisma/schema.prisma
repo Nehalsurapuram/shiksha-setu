@@ -107,6 +107,7 @@ model School {
   lessons          Lesson[]
   analyticsEvents  AnalyticsEvent[]
   learningOutcomes LearningOutcome[]
+  classroomSessions ClassroomSession[]
 
   @@index([district, block])
   @@index([state])
@@ -144,6 +145,7 @@ model User {
   learningOutcomes LearningOutcome[]
   syncItems        SyncItem[]
   analyticsEvents  AnalyticsEvent[]
+  classroomSessions ClassroomSession[]
 
   @@index([schoolId])
   @@index([role])
@@ -178,6 +180,11 @@ model Language {
 
   flashcards Flashcard[]
   audios     Audio[]
+
+  sessionsAsInstruction ClassroomSession[] @relation("SessionInstructionLanguage")
+  sessionsAsMotherTongue ClassroomSession[] @relation("SessionMotherTongue")
+  messagesAsSource ClassroomMessage[] @relation("MessageSourceLanguage")
+  messagesAsTarget ClassroomMessage[] @relation("MessageTargetLanguage")
 
   @@index([status])
   @@index([isTarget])
@@ -253,6 +260,7 @@ model Translation {
 
   corrections TranslationCorrection[]
   audios      Audio[]
+  classroomMessages ClassroomMessage[]
 
   @@unique([contentHash, sourceLanguageId, targetLanguageId])
   @@index([lessonId])
@@ -477,4 +485,68 @@ model AnalyticsEvent {
   @@index([name, occurredAt])
   @@index([userId])
   @@index([schoolId])
+}
+
+// ---------------------------------------------------------------- classroom
+
+enum ClassroomSpeaker {
+  TEACHER
+  STUDENT
+}
+
+/// A live back-and-forth between a teacher and a student, saved on request.
+/// Sessions are the record of what was actually said in a classroom, which is
+/// where the evidence for whether this product helps will eventually come from.
+model ClassroomSession {
+  id        String    @id @default(cuid())
+  title     String?
+  startedAt DateTime
+  savedAt   DateTime  @default(now())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  teacherId String
+  teacher   User   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  schoolId String?
+  school   School? @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+
+  instructionLanguageId String
+  instructionLanguage   Language @relation("SessionInstructionLanguage", fields: [instructionLanguageId], references: [id])
+  motherTongueId        String
+  motherTongue          Language @relation("SessionMotherTongue", fields: [motherTongueId], references: [id])
+
+  messages ClassroomMessage[]
+
+  @@index([teacherId, savedAt])
+  @@index([schoolId])
+}
+
+model ClassroomMessage {
+  id       String           @id @default(cuid())
+  speaker  ClassroomSpeaker
+  /// What was said, in the speaker's own language.
+  sourceText String         @db.Text
+  /// What the other person was shown. Null if translation failed for this turn.
+  translatedText String?    @db.Text
+  /// Whether audio was actually produced for the translation.
+  hadAudio Boolean          @default(false)
+  /// Measured end-to-end time for this turn, in milliseconds.
+  latencyMs Int?
+  spokenAt DateTime
+  createdAt DateTime        @default(now())
+
+  sessionId String
+  session   ClassroomSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  sourceLanguageId String
+  sourceLanguage   Language @relation("MessageSourceLanguage", fields: [sourceLanguageId], references: [id])
+  targetLanguageId String
+  targetLanguage   Language @relation("MessageTargetLanguage", fields: [targetLanguageId], references: [id])
+
+  translationId String?
+  translation   Translation? @relation(fields: [translationId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId, spokenAt])
+  @@index([translationId])
 }

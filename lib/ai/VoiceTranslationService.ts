@@ -5,11 +5,16 @@ import { SpeechError } from "@/lib/ai/speech-provider";
 import { TranslationService } from "@/lib/ai/TranslationService";
 
 export type VoiceTranslationInput = {
-  audio: Blob;
-  fileName: string;
+  /** Provide one of `audio` or `text`. Text skips the speech-to-text stage. */
+  audio?: Blob;
+  fileName?: string;
+  /** Typed input, for a student who can write the language but not speak up. */
+  text?: string;
   sourceLanguage: { code: string; name: string };
   targetLanguage: { code: string; name: string };
   userId?: string | null;
+  /** See TranslateInput.allowReverseDirection. */
+  allowReverseDirection?: boolean;
 };
 
 export type VoiceTranslationOutcome = {
@@ -61,20 +66,40 @@ export class VoiceTranslationService {
     // Measured, never assumed. Every number returned comes from this clock.
     const startedAt = Date.now();
 
-    const transcribeStart = Date.now();
-    const transcription = await this.#speech.transcribe(
-      input.audio,
-      input.fileName,
-      input.sourceLanguage.code,
-    );
-    const transcribeMs = Date.now() - transcribeStart;
+    // Text input skips speech-to-text entirely; its stage cost is genuinely
+    // zero rather than unmeasured.
+    let sourceText: string;
+    let transcribeMs = 0;
+    let fromDemoSpeech = false;
+
+    if (input.audio) {
+      const transcribeStart = Date.now();
+      const transcription = await this.#speech.transcribe(
+        input.audio,
+        input.fileName ?? "recording.webm",
+        input.sourceLanguage.code,
+      );
+      transcribeMs = Date.now() - transcribeStart;
+      sourceText = transcription.transcript;
+      fromDemoSpeech = transcription.provider === "demo";
+    } else {
+      sourceText = (input.text ?? "").trim();
+      if (!sourceText) {
+        throw new SpeechError(
+          "NO_AUDIO",
+          "Provide a recording or some text to translate.",
+          { status: 400 },
+        );
+      }
+    }
 
     const translateStart = Date.now();
     const translated = await this.#translation.translate({
-      text: transcription.transcript,
+      text: sourceText,
       sourceLanguage: input.sourceLanguage.code,
       targetLanguage: input.targetLanguage.code,
       userId: input.userId ?? null,
+      allowReverseDirection: input.allowReverseDirection,
     });
     const translateMs = Date.now() - translateStart;
 
@@ -113,13 +138,13 @@ export class VoiceTranslationService {
     }
 
     return {
-      transcript: transcription.transcript,
+      transcript: sourceText,
       translation: translated.translatedText,
       audioUrl,
       audioUnavailableReason,
       processingTimeMs: Date.now() - startedAt,
       timings: { transcribeMs, translateMs, synthesizeMs },
-      isDemo: translated.isDemo || transcription.provider === "demo",
+      isDemo: translated.isDemo || fromDemoSpeech,
       translationId: translated.translationId,
     };
   }
