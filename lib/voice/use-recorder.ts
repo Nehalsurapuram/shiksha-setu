@@ -1,8 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { MAX_RECORDING_MS } from "@/lib/ai/speech-limits";
+
+const UNSUPPORTED_MESSAGE =
+  "This browser cannot record audio. Try Chrome on the tablet, and make sure the page is served over HTTPS.";
+
+/** Browser capability never changes within a session. */
+const subscribeToSupport = () => () => {};
+
+function hasRecorderSupport(): boolean {
+  return (
+    typeof MediaRecorder !== "undefined" &&
+    Boolean(navigator.mediaDevices?.getUserMedia)
+  );
+}
+
+// The server has no microphone to report on, so it renders the optimistic
+// value and the client corrects it on hydration.
+const supportOnServer = () => true;
 
 export type RecorderState =
   | "unsupported"
