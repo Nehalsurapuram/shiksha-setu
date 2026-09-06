@@ -31,6 +31,10 @@ export function Reveal({
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    // Tells the inline failsafe in the layout that React is alive, so it does
+    // not strip the reveal styling out from under us.
+    document.documentElement.setAttribute("data-reveal-hydrated", "");
+
     const node = ref.current;
 
     if (!node || typeof IntersectionObserver === "undefined") {
