@@ -103,9 +103,17 @@ export async function POST(request: Request) {
         );
         content.assessment.sat = await into(generated.assessment.description);
 
-        for (const item of content.vocabulary) {
-          item.sat = await into(item.term);
-        }
+        // Vocabulary terms are deliberately NOT machine translated.
+        //
+        // A single word with no surrounding sentence gives the translator
+        // nothing to disambiguate against, and it shows: "पौधा" comes back as
+        // a sentence of meta-commentary about the word rather than the word,
+        // and "तना" comes back truncated. Full sentences translate cleanly.
+        //
+        // A teacher who cannot read Ol Chiki has no way to catch a wrong word,
+        // and a wrong word is what gets written on the blackboard. So these
+        // stay null — the editor shows "Not translated" and the teacher fills
+        // them in, which is the glossary this product is meant to build.
         for (const item of content.practiceQuestions) {
           item.sat = await into(item.question);
         }

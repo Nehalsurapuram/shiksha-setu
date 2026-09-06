@@ -81,6 +81,11 @@ export function PackageEditor({
       </Section>
 
       <Section index={4} title="Vocabulary" hint="Key words for this lesson.">
+        <p className="mb-3 rounded-md border border-border bg-muted/40 p-2.5 text-xs text-muted-foreground">
+          Single words are not machine translated: with no sentence around them
+          the translator is unreliable, and a wrong word here is what ends up on
+          the blackboard. Fill in the {targetName} column yourself.
+        </p>
         <div className="space-y-2">
           {content.vocabulary.length === 0 ? (
             <Empty label="No vocabulary was generated." />
