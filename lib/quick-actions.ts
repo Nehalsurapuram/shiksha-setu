@@ -28,7 +28,7 @@ export const QUICK_ACTIONS: QuickAction[] = [
     label: "Voice Assistant",
     href: "/voice-assistant",
     icon: "Mic",
-    phase: 2,
+    phase: 1,
     hint: "Speak and listen",
   },
   {

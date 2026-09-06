@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   Loader2,
@@ -70,7 +70,7 @@ export function VoiceAssistant({
   const recorder = useRecorder({ onComplete: handleComplete });
   const { setState: setRecorderState, setError: setRecorderError } = recorder;
 
-  uploadRef.current = async (audio: Blob) => {
+  const upload = useCallback(async (audio: Blob) => {
     setResult(null);
 
     const form = new FormData();
@@ -107,7 +107,13 @@ export function VoiceAssistant({
 
     setResult(payload);
     setRecorderState("completed");
-  };
+  }, [setRecorderState, setRecorderError]);
+
+  // Assigned in an effect, not during render: refs must not be mutated while
+  // rendering. The recorder only reads it after a recording finishes.
+  useEffect(() => {
+    uploadRef.current = upload;
+  }, [upload]);
 
   const togglePlay = () => {
     const element = audioRef.current;

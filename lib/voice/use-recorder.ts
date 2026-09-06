@@ -68,18 +68,13 @@ export function useRecorder({
   const stopTimerRef = useRef<number | null>(null);
   const startedAtRef = useRef(0);
 
-  useEffect(() => {
-    if (
-      typeof window === "undefined" ||
-      typeof MediaRecorder === "undefined" ||
-      !navigator.mediaDevices?.getUserMedia
-    ) {
-      setState("unsupported");
-      setError(
-        "This browser cannot record audio. Try Chrome on the tablet, and make sure the page is served over HTTPS.",
-      );
-    }
-  }, []);
+  // Read through a store rather than an effect, so the first client render
+  // matches the server's and no state is set during an effect.
+  const supported = useSyncExternalStore(
+    subscribeToSupport,
+    hasRecorderSupport,
+    supportOnServer,
+  );
 
   const cleanup = useCallback(() => {
     if (timerRef.current !== null) window.clearInterval(timerRef.current);
@@ -180,13 +175,14 @@ export function useRecorder({
   }, [cleanup, onComplete]);
 
   return {
-    state,
+    // An unrecordable browser overrides the lifecycle state entirely.
+    state: supported ? state : ("unsupported" as RecorderState),
     setState,
-    error,
+    error: supported ? error : UNSUPPORTED_MESSAGE,
     setError,
     elapsedMs,
     start,
     stop,
-    isRecording: state === "listening",
+    isRecording: supported && state === "listening",
   };
 }

@@ -64,9 +64,9 @@ export const FEATURES: Feature[] = [
   {
     title: "Voice-to-Voice Translation",
     description:
-      "Speak a sentence in Hindi and hear it in the mother tongue — for the many teachers and children who speak a language they do not read.",
+      "Speak a sentence in Hindi and see it in the mother tongue. Speech recognition and translation work today; reading the result aloud waits on a Santhali voice existing.",
     icon: "Mic",
-    state: "planned",
+    state: "in-progress",
     phase: 3,
   },
   {

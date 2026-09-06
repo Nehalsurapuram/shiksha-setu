@@ -24,7 +24,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Voice Assistant",
     href: "/voice-assistant",
     icon: "Mic",
-    phase: 2,
+    phase: 1,
     description: "Speak a sentence, hear it back in the mother tongue.",
   },
   {
