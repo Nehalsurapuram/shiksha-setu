@@ -6,12 +6,15 @@ planned.
 
 Built to run on low-cost Android tablets with offline-first classroom usage.
 
-> **Status: foundation + public site.** The database, language data,
-> application shell, PWA skeleton and the marketing site are in place.
-> Translation, voice, and content generation are **not implemented** — see
-> [docs/PHASE-1.md](docs/PHASE-1.md) and
-> [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md). Every unbuilt screen says so
-> plainly rather than showing sample output.
+> **Status: translation is live.** Hindi → Santhali translation runs against
+> Sarvam AI, with history and teacher corrections — see
+> [docs/TRANSLATION.md](docs/TRANSLATION.md). Voice, content generation and
+> offline sync are **not implemented**; see [docs/PHASE-1.md](docs/PHASE-1.md)
+> and [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md). Every unbuilt screen says
+> so plainly rather than showing sample output.
+>
+> Without a `SARVAM_API_KEY` the translator runs in demo mode, which returns a
+> labelled placeholder — never invented Santhali.
 
 ## Stack
 

@@ -31,7 +31,8 @@ export function AppShell({
           <SidebarNav />
         </div>
         <div className="border-t border-border px-5 py-4 text-xs text-muted-foreground">
-          Phase 1 · foundation only. Features marked P2 / P3 are not built yet.
+          Translation is live. Features marked P2 / P3 are not built yet, and
+          their screens say so.
         </div>
       </aside>
 
