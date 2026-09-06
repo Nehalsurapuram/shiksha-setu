@@ -14,7 +14,10 @@ export type ProviderName = "sarvam" | "openai";
 
 export type ProviderReadiness = {
   name: ProviderName;
+  /** Display name, so the UI never has to prettify an identifier itself. */
+  label: string;
   role: "translation" | "llm";
+  roleLabel: string;
   selected: boolean;
   credentialPresent: boolean;
 };
@@ -23,13 +26,17 @@ export function getProviderReadiness(): ProviderReadiness[] {
   return [
     {
       name: "sarvam",
+      label: "Sarvam AI",
       role: "translation",
+      roleLabel: "translation",
       selected: env.TRANSLATION_PROVIDER === "sarvam",
       credentialPresent: isSarvamConfigured(),
     },
     {
       name: "openai",
+      label: "OpenAI",
       role: "llm",
+      roleLabel: "content generation",
       selected: env.LLM_PROVIDER === "openai",
       credentialPresent: providerStatus.openai,
     },

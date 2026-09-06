@@ -46,7 +46,7 @@ export default async function SettingsPage() {
                 <StatusRow
                   key={provider.name}
                   ok={provider.credentialPresent}
-                  label={`${provider.name === "sarvam" ? "Sarvam AI" : "OpenAI"} · ${provider.role}${provider.selected ? " · selected" : ""}`}
+                  label={`${provider.label} · ${provider.roleLabel}${provider.selected ? " · selected" : ""}`}
                   detail={
                     provider.credentialPresent
                       ? "Key configured. Phase 1 never calls this provider."

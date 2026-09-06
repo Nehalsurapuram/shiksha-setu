@@ -107,11 +107,11 @@ export default async function DashboardPage() {
                 <StatusRow
                   key={provider.name}
                   ok={provider.credentialPresent}
-                  label={`${provider.name === "sarvam" ? "Sarvam AI" : "OpenAI"} credential`}
+                  label={`${provider.label} credential`}
                   detail={
                     provider.credentialPresent
-                      ? `Key present. Not called yet — the ${provider.role} integration lands in Phase 2.`
-                      : `No key set. Add it to .env before the Phase 2 ${provider.role} work.`
+                      ? `Key present. Not called yet — the ${provider.roleLabel} integration lands in Phase 2.`
+                      : `No key set. Add it to .env before the Phase 2 ${provider.roleLabel} work.`
                   }
                 />
               ))}
