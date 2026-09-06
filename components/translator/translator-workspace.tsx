@@ -9,6 +9,7 @@ import {
   Eraser,
   Loader2,
   Pencil,
+  Save,
   Volume2,
 } from "lucide-react";
 
@@ -44,6 +45,9 @@ type TranslateFailure = {
 };
 
 type Status = "idle" | "loading" | "done" | "error";
+
+/** Ties the Save button to the correction form rendered further down. */
+const CORRECTION_FORM_ID = "translator-correction-form";
 
 export function TranslatorWorkspace({
   sourceLanguage,
@@ -290,6 +294,23 @@ export function TranslatorWorkspace({
                 <Pencil aria-hidden />
                 Edit
               </Button>
+              {/* Submits the correction form below via the HTML `form`
+                  attribute, so Save lives with the other output actions
+                  instead of being hidden until Edit is open. */}
+              <Button
+                type="submit"
+                form={CORRECTION_FORM_ID}
+                variant="outline"
+                disabled={!result || !isEditing}
+                title={
+                  isEditing
+                    ? "Save your corrected translation"
+                    : "Choose Edit first, then Save your correction"
+                }
+              >
+                <Save aria-hidden />
+                Save
+              </Button>
               <Button
                 variant="outline"
                 disabled
@@ -302,7 +323,7 @@ export function TranslatorWorkspace({
 
             <p className="mt-2 text-xs text-muted-foreground">
               Listen needs text-to-speech, which is not built yet. Use Edit to
-              correct the translation, then Save correction.
+              correct the translation, then Save.
             </p>
 
             {result ? <ResultMeta result={result} /> : null}
@@ -316,6 +337,7 @@ export function TranslatorWorkspace({
           <CardContent className="p-4 sm:p-5">
             <CorrectionForm
               translationId={result.translationId}
+              formId={CORRECTION_FORM_ID}
               initialText={result.translatedText}
               isOlChiki={targetIsOlChiki && !result.isDemo}
               onCancel={() => setIsEditing(false)}

@@ -20,12 +20,19 @@ export function CorrectionForm({
   isOlChiki,
   onCancel,
   onSaved,
+  formId,
 }: {
   translationId: string;
   initialText: string;
   isOlChiki: boolean;
   onCancel?: () => void;
   onSaved?: () => void;
+  /**
+   * When set, the form renders no submit button of its own — a Save button
+   * elsewhere on the page submits it via the HTML `form` attribute. Used by the
+   * translator so Save sits with Copy, Edit and Listen in one row.
+   */
+  formId?: string;
 }) {
   const [state, formAction, isPending] = useActionState(
     saveCorrection,
@@ -37,7 +44,7 @@ export function CorrectionForm({
   }, [state.status, onSaved]);
 
   return (
-    <form action={formAction} className="space-y-3">
+    <form id={formId} action={formAction} className="space-y-3">
       <input type="hidden" name="translationId" value={translationId} />
 
       <div>
@@ -80,10 +87,18 @@ export function CorrectionForm({
         difference can be used to improve later translations.
       </p>
 
-      <div className="flex flex-wrap gap-2">
-        <Button type="submit" disabled={isPending}>
-          {isPending ? "Saving…" : "Save correction"}
-        </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        {formId ? (
+          isPending ? (
+            <p role="status" className="text-sm text-muted-foreground">
+              Saving…
+            </p>
+          ) : null
+        ) : (
+          <Button type="submit" disabled={isPending}>
+            {isPending ? "Saving…" : "Save correction"}
+          </Button>
+        )}
         {onCancel ? (
           <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
