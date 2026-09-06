@@ -53,6 +53,11 @@ export class SpeechService {
     return this.#tts.supports(languageCode);
   }
 
+  /** False when no credential is configured, so no provider is really wired up. */
+  get isTtsConfigured(): boolean {
+    return this.#tts.id !== "demo";
+  }
+
   async transcribe(
     audio: Blob,
     fileName: string,
@@ -115,6 +120,18 @@ export class SpeechService {
       throw new SpeechError("NO_AUDIO", "There is no text to read aloud.", {
         status: 400,
       });
+    }
+
+    // "Not configured" and "this language has no voice" are different problems
+    // with different fixes. Reporting the language message when the real cause
+    // is a missing key would send an administrator hunting for the wrong thing
+    // — Sarvam speaks Hindi perfectly well.
+    if (!this.isTtsConfigured) {
+      throw new SpeechError(
+        "NOT_CONFIGURED",
+        "Audio generation is not configured on this server.",
+        { status: 503 },
+      );
     }
 
     if (!this.#tts.supports(languageCode)) {

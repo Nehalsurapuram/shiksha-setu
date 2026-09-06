@@ -82,13 +82,14 @@ export class VoiceTranslationService {
     let audioUnavailableReason: string | null = null;
     let synthesizeMs = 0;
 
-    if (!this.#speech.canSpeak(input.targetLanguage.code)) {
-      audioUnavailableReason = ttsUnavailableMessage(input.targetLanguage.name);
-    } else if (translated.isDemo) {
-      // The "translation" is a demo notice, not language. Reading it aloud
-      // would be audio of a placeholder.
+    // Order matters: report the cause the operator can actually act on. In
+    // demo mode nothing is configured, so leading with the language message
+    // would misattribute the problem.
+    if (translated.isDemo || !this.#speech.isTtsConfigured) {
       audioUnavailableReason =
-        "No audio in demo mode, because nothing was actually translated.";
+        "No audio in demo mode: no speech provider is configured, and nothing was actually translated.";
+    } else if (!this.#speech.canSpeak(input.targetLanguage.code)) {
+      audioUnavailableReason = ttsUnavailableMessage(input.targetLanguage.name);
     } else {
       const synthesizeStart = Date.now();
       try {
