@@ -1,17 +1,23 @@
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { ArrowRight, PlayCircle, WifiOff } from "lucide-react";
 
-import { Reveal } from "@/components/marketing/reveal";
 import { Button } from "@/components/ui/button";
 import { BRAND } from "@/lib/marketing";
 
+/** Stagger helper for the CSS-only entrance animation. */
+const enter = (ms: number) => ({ "--enter-delay": `${ms}ms` }) as CSSProperties;
+
 /**
- * The hero visual is a *frame*, not a sample.
+ * The hero animates with CSS alone — no IntersectionObserver, no hydration
+ * dependency. It is the first thing anyone reads, so it must be readable even
+ * if the JavaScript bundle never arrives.
  *
- * It shows the two languages by their real endonyms — हिन्दी and ᱥᱟᱱᱛᱟᱲᱤ, which
- * are facts, not model output — and leaves the translation surface empty with
- * a caption saying so. Filling it with invented Santhali to make a prettier
- * screenshot is exactly the thing this project must not do.
+ * The visual is a *frame*, not a sample. It shows the two languages by their
+ * real endonyms — हिन्दी and ᱥᱟᱱᱛᱟᱲᱤ, which are facts, not model output — and
+ * leaves the translation surface empty with a caption saying so. Filling it
+ * with invented Santhali to make a prettier screenshot is exactly the thing
+ * this project must not do.
  */
 export function Hero() {
   return (
@@ -23,68 +29,72 @@ export function Hero() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,transparent_35%,var(--brand-ink)_78%)]" />
       </div>
 
-      <div className="mx-auto grid w-full max-w-6xl gap-12 px-5 py-20 sm:px-6 sm:py-24 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-16 lg:px-8 lg:py-32">
+      <div className="mx-auto grid w-full max-w-6xl gap-12 px-5 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-16 lg:px-8 lg:py-24">
         <div>
-          <Reveal>
+          <p className="ss-enter">
             <span className="inline-flex items-center gap-2 rounded-full border border-on-brand/20 bg-on-brand/5 px-3 py-1.5 text-xs font-medium text-on-brand-muted">
               <span className="size-1.5 rounded-full bg-marigold" aria-hidden />
               Mother tongue-based multilingual education
             </span>
-          </Reveal>
+          </p>
 
-          <Reveal delay={60}>
-            <h1 className="mt-6 text-balance text-4xl font-semibold leading-[1.08] tracking-tight text-on-brand sm:text-5xl lg:text-6xl">
-              Teach Every Child in Their Mother Tongue
-            </h1>
-          </Reveal>
+          <h1
+            style={enter(60)}
+            className="ss-enter mt-6 text-balance text-4xl font-semibold leading-[1.08] tracking-tight text-on-brand sm:text-5xl lg:text-6xl"
+          >
+            Teach Every Child in Their Mother Tongue
+          </h1>
 
-          <Reveal delay={120}>
-            <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-on-brand-muted">
-              In thousands of schools a Hindi-medium teacher stands in front of
-              children who speak Santhali, Ho or Mundari at home. Both are
-              fluent — in different languages. ShikshaSetu AI is being built to
-              close that gap with translation, voice and lesson tools that keep
-              working when the network does not.
-            </p>
-          </Reveal>
+          <p
+            style={enter(120)}
+            className="ss-enter mt-6 max-w-xl text-pretty text-lg leading-relaxed text-on-brand-muted"
+          >
+            In thousands of schools a Hindi-medium teacher stands in front of
+            children who speak Santhali, Ho or Mundari at home. Both are fluent
+            — in different languages. ShikshaSetu AI is being built to close that
+            gap with translation, voice and lesson tools that keep working when
+            the network does not.
+          </p>
 
-          <Reveal delay={180}>
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <Button
-                asChild
-                size="lg"
-                className="bg-marigold text-brand-ink hover:bg-marigold-strong"
-              >
-                <Link href="/dashboard">
-                  Open Teacher Assistant
-                  <ArrowRight aria-hidden />
-                </Link>
-              </Button>
-              <Button
-                asChild
-                size="lg"
-                variant="outline"
-                className="border-on-brand/30 bg-transparent text-on-brand hover:bg-on-brand/10"
-              >
-                <Link href="/dashboard">
-                  <PlayCircle aria-hidden />
-                  Watch Demo
-                </Link>
-              </Button>
-            </div>
-          </Reveal>
+          <div
+            style={enter(180)}
+            className="ss-enter mt-9 flex flex-col gap-3 sm:flex-row"
+          >
+            <Button
+              asChild
+              size="lg"
+              className="bg-marigold text-brand-ink hover:bg-marigold-strong"
+            >
+              <Link href="/dashboard">
+                Open Teacher Assistant
+                <ArrowRight aria-hidden />
+              </Link>
+            </Button>
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="border-on-brand/30 bg-transparent text-on-brand hover:bg-on-brand/10"
+            >
+              <Link href="/dashboard">
+                <PlayCircle aria-hidden />
+                Watch Demo
+              </Link>
+            </Button>
+          </div>
 
-          <Reveal delay={240}>
-            <p className="mt-5 max-w-xl text-sm text-on-brand-muted/80">
-              There is no recorded demo yet, so both buttons open the live app.
-              The foundation is built; the AI features are not, and every screen
-              says which is which.
-            </p>
-          </Reveal>
+          <p
+            style={enter(240)}
+            className="ss-enter mt-5 max-w-xl text-sm text-on-brand-muted/80"
+          >
+            There is no recorded demo yet, so both buttons open the live app.
+            The foundation is built; the AI features are not, and every screen
+            says which is which.
+          </p>
         </div>
 
         {/* Language bridge card */}
-        <Reveal delay={140} className="lg:justify-self-end">
+        <div style={enter(140)} className="ss-enter lg:justify-self-end">
           <div className="relative w-full max-w-md rounded-2xl border border-on-brand/15 bg-on-brand/[0.06] p-2 shadow-2xl backdrop-blur-sm">
             <div className="rounded-xl bg-card p-5 sm:p-6">
               <div className="flex items-center justify-between gap-3">
@@ -117,9 +127,7 @@ export function Hero() {
                 </div>
 
                 <div className="rounded-lg border border-brand/30 bg-brand-tint p-4">
-                  <p className="text-xs font-medium text-brand">
-                    Mother tongue
-                  </p>
+                  <p className="text-xs font-medium text-brand">Mother tongue</p>
                   <p className="mt-1 text-2xl font-semibold tracking-tight">
                     <span className="font-ol-chiki">ᱥᱟᱱᱛᱟᱲᱤ</span>{" "}
                     <span className="text-base font-normal text-muted-foreground">
@@ -140,7 +148,7 @@ export function Hero() {
               </p>
             </div>
           </div>
-        </Reveal>
+        </div>
       </div>
 
       <div className="border-t border-on-brand/10">

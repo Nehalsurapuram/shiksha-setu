@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Noto_Sans_Ol_Chiki } from "next/font/google";
 
 import { ServiceWorkerRegistrar } from "@/components/layout/service-worker-registrar";
-import { RevealReadyScript } from "@/components/marketing/reveal-ready-script";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -57,15 +56,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      // RevealReadyScript sets data-reveal-ready on <html> before React
-      // hydrates, so the server markup and the live DOM differ by that one
-      // attribute by design. This suppresses the warning for this element's
-      // attributes only; it does not extend to any child.
-      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${olChiki.variable} h-full antialiased`}
     >
       <body className="min-h-full font-sans">
-        <RevealReadyScript />
         {children}
         <ServiceWorkerRegistrar />
       </body>
