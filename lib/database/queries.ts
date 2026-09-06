@@ -91,6 +91,92 @@ export async function getDefaultLanguagePair() {
   return { source, target };
 }
 
+/**
+ * The signed-in teacher.
+ *
+ * Authentication is not built yet, so this resolves to the seeded demo teacher.
+ * Every caller goes through here rather than assuming a user, so wiring real
+ * auth later is a change to this one function.
+ */
+export async function getCurrentTeacher() {
+  return prisma.user.findFirst({
+    where: { role: "TEACHER" },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      school: { select: { id: true, name: true, district: true, state: true } },
+      sourceLanguage: { select: { id: true, code: true, name: true } },
+      targetLanguage: { select: { id: true, code: true, name: true } },
+    },
+  });
+}
+
+/**
+ * Dashboard counters.
+ *
+ * All four are `count` queries against real tables. Three of them are expected
+ * to be zero until the generation features exist — that is the correct answer,
+ * not a broken widget, and the dashboard says so rather than substituting a
+ * plausible-looking number.
+ */
+export async function getTeacherStats(teacherId: string) {
+  const [translations, worksheets, audioLessons, savedLessons] =
+    await Promise.all([
+      prisma.translation.count({ where: { createdById: teacherId } }),
+      prisma.worksheet.count({ where: { createdById: teacherId } }),
+      prisma.audio.count({ where: { createdById: teacherId } }),
+      prisma.lesson.count({ where: { authorId: teacherId } }),
+    ]);
+
+  return { translations, worksheets, audioLessons, savedLessons };
+}
+
+const LESSON_CARD_SELECT = {
+  id: true,
+  title: true,
+  subject: true,
+  grade: true,
+  topic: true,
+  status: true,
+  isSample: true,
+  isOfflinePinned: true,
+  updatedAt: true,
+  lastOpenedAt: true,
+  sourceLanguage: { select: { code: true, name: true, script: true } },
+  targetLanguage: { select: { code: true, name: true, script: true } },
+  _count: { select: { translations: true, worksheets: true, audios: true } },
+} as const;
+
+export type LessonCard = Awaited<ReturnType<typeof listRecentLessons>>[number];
+
+/** Most recently updated lessons, for the Recent Lessons table. */
+export async function listRecentLessons(teacherId: string, take = 6) {
+  return prisma.lesson.findMany({
+    where: { authorId: teacherId },
+    orderBy: { updatedAt: "desc" },
+    take,
+    select: LESSON_CARD_SELECT,
+  });
+}
+
+/**
+ * Lessons the teacher has actually opened, most recent first.
+ *
+ * Ordered by `lastOpenedAt`, and lessons never opened are excluded — otherwise
+ * "Continue teaching" would offer to resume something that was never started.
+ */
+export async function listContinueTeaching(teacherId: string, take = 3) {
+  return prisma.lesson.findMany({
+    where: { authorId: teacherId, lastOpenedAt: { not: null } },
+    orderBy: { lastOpenedAt: "desc" },
+    take,
+    select: LESSON_CARD_SELECT,
+  });
+}
+
 /** Cheap liveness probe used by the dashboard and /api/health. */
 export async function checkDatabase(): Promise<
   { ok: true } | { ok: false; error: string }

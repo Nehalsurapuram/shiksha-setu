@@ -35,6 +35,13 @@ export const NAV_ITEMS: NavItem[] = [
     description: "Bilingual lesson plans built from the state syllabus.",
   },
   {
+    label: "Curriculum",
+    href: "/curriculum",
+    icon: "Library",
+    phase: 2,
+    description: "State syllabus mapped to grades, subjects and learning outcomes.",
+  },
+  {
     label: "Worksheets",
     href: "/worksheets",
     icon: "FileText",

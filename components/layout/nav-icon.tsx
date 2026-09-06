@@ -7,6 +7,7 @@ import {
   Layers,
   Languages,
   LayoutDashboard,
+  Library,
   Mic,
   RefreshCw,
   Settings,
@@ -15,7 +16,7 @@ import {
 
 /**
  * Explicit map rather than a dynamic lucide lookup: this keeps the bundle to
- * the eleven icons the sidebar actually uses instead of pulling in the whole
+ * the twelve icons the sidebar actually uses instead of pulling in the whole
  * icon set, which matters on a tablet over a slow rural connection.
  */
 const ICONS: Record<string, LucideIcon> = {
@@ -23,6 +24,7 @@ const ICONS: Record<string, LucideIcon> = {
   Languages,
   Mic,
   BookOpen,
+  Library,
   FileText,
   Layers,
   ClipboardCheck,
