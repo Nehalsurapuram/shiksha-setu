@@ -6,10 +6,12 @@ planned.
 
 Built to run on low-cost Android tablets with offline-first classroom usage.
 
-> **Status: Phase 1 (foundation).** The database, language data, application
-> shell and PWA skeleton are in place. Translation, voice, and content
-> generation are **not implemented** — see [docs/PHASE-1.md](docs/PHASE-1.md).
-> Every unbuilt screen says so plainly rather than showing sample output.
+> **Status: foundation + public site.** The database, language data,
+> application shell, PWA skeleton and the marketing site are in place.
+> Translation, voice, and content generation are **not implemented** — see
+> [docs/PHASE-1.md](docs/PHASE-1.md) and
+> [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md). Every unbuilt screen says so
+> plainly rather than showing sample output.
 
 ## Stack
 
@@ -45,8 +47,10 @@ Open <http://localhost:3000>. Health check: `GET /api/health`.
 
 ```
 app/            routes — landing page, (app) shell group, api/
-components/     ui/ (primitives), layout/ (shell), shared/ (page-level)
-lib/            ai/ sarvam/ database/ offline/ + env, languages, navigation
+components/     ui/ (primitives), layout/ (shell), marketing/ (public site),
+                shared/ (page-level)
+lib/            ai/ sarvam/ database/ offline/ + env, languages, navigation,
+                marketing (public-site copy)
 prisma/         schema, migrations, seed
 docs/           phase notes
 types/          shared types
