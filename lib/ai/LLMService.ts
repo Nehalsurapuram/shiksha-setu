@@ -79,6 +79,20 @@ export class LLMService {
     return this.#provider.isConfigured;
   }
 
+  /**
+   * Escape hatch for callers with their own system prompt and schema.
+   *
+   * FLN alignment uses it because its rules are the opposite of the teaching
+   * prompt's: it must produce no teaching content at all, and its hard ban on
+   * codes does not belong in the shared instruction.
+   */
+  async completeStructured<T>(
+    request: Parameters<LLMProvider["complete"]>[0],
+  ): Promise<{ data: T; provider: LLMProviderId; model: string }> {
+    const result = await this.#provider.complete<T>(request);
+    return { data: result.data, provider: result.provider, model: result.model };
+  }
+
   /** The whole package in one call: objective through homework. */
   async generateLesson(context: LessonContext): Promise<GeneratedPackage> {
     const result = await this.#provider.complete<GeneratedPackage>({
