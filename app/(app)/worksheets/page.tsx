@@ -1,26 +1,76 @@
 import type { Metadata } from "next";
 
-import { NotBuiltYet } from "@/components/shared/not-built-yet";
+import { SheetWorkspace } from "@/components/generators/sheet-workspace";
 import { PageHeader } from "@/components/shared/page-header";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { LLMService } from "@/lib/ai/LLMService";
+import type { QuestionType } from "@/lib/ai/generated-content";
+import { getDefaultLanguagePair } from "@/lib/database/queries";
 
 export const metadata: Metadata = { title: "Worksheets" };
+export const dynamic = "force-dynamic";
 
-export default function WorksheetsPage() {
+/** A worksheet is done on paper, so oral questions are not offered here. */
+const WORKSHEET_TYPES: QuestionType[] = [
+  "MULTIPLE_CHOICE",
+  "FILL_IN_BLANK",
+  "TRUE_FALSE",
+  "MATCHING",
+  "PICTURE_BASED",
+  "COUNTING",
+  "SHORT_ANSWER",
+];
+
+export default async function WorksheetsPage() {
+  const pair = await getDefaultLanguagePair();
+
+  if (!pair) {
+    return (
+      <>
+        <PageHeader title="Worksheets" />
+        <Card>
+          <CardHeader>
+            <CardTitle>No language pair is configured</CardTitle>
+            <CardDescription>
+              Run the seed script to load Hindi and Santhali.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </>
+    );
+  }
+
+  const llm = new LLMService();
+
   return (
     <>
       <PageHeader
         title="Worksheets"
-        description="Printable practice sheets generated from a lesson."
+        description={`Generate bilingual practice sheets in ${pair.source.name} and ${pair.target.name}, edit every question, then print or save as PDF.`}
+        action={
+          llm.isConfigured ? (
+            <Badge variant="outline">Generation configured</Badge>
+          ) : (
+            <Badge variant="warning">Generation unavailable</Badge>
+          )
+        }
       />
-      <NotBuiltYet
-        feature="Worksheet generation"
-        phase={2}
-        summary="Phase 1 defines the Worksheet table and its question formats but generates nothing."
-        willInclude={[
-          "Generate matching, fill-in-the-blank, reading, picture-labelling and word-hunt sheets from a lesson.",
-          "Produce a print-ready layout that works on a shared classroom printer.",
-          "Keep the Hindi and Santhali versions of a sheet together.",
-        ]}
+
+      <SheetWorkspace
+        kind="worksheet"
+        sourceName={pair.source.name}
+        targetName={pair.target.name}
+        targetIsOlChiki={pair.target.script === "OL_CHIKI"}
+        llmConfigured={llm.isConfigured}
+        allowedTypes={WORKSHEET_TYPES}
+        defaultTypes={["MULTIPLE_CHOICE", "FILL_IN_BLANK", "SHORT_ANSWER"]}
       />
     </>
   );

@@ -54,6 +54,25 @@ export function splitForTranslation(text: string, limit = CHUNK_LIMIT): string[]
 }
 
 /**
+ * Whether a string has enough context to translate reliably.
+ *
+ * Measured against the live Sarvam API: `पौधा` on its own comes back as a
+ * sentence of meta-commentary about the word, and `तना` comes back truncated,
+ * while the same words inside a sentence translate cleanly. An isolated word
+ * gives the model nothing to disambiguate against.
+ *
+ * A teacher who cannot read Ol Chiki cannot catch a wrong word, and the word
+ * is what a child copies down. So short fragments are left untranslated and
+ * shown as such, rather than filled with something plausible.
+ */
+export function hasEnoughContextToTranslate(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  return words.length >= 3 || trimmed.length >= 20;
+}
+
+/**
  * Translates text of any length, or returns null if it cannot.
  *
  * Null means "not translated" and every caller renders it as such. A partial
