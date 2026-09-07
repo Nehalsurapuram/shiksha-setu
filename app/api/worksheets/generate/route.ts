@@ -83,37 +83,45 @@ export async function POST(request: Request) {
       languageCode: pair.source.code,
     });
 
-    const { alignment, note: alignmentNote } = await tryBuildAlignment(() =>
-      buildSheetAlignment(
-        llm,
-        {
-          title: content.title,
-          grade: parsed.data.grade,
-          subject: parsed.data.subject,
-          topic: parsed.data.topic,
-          body: content.questions
-            .map((q, i) => `${i}. [${q.type}] ${q.prompt} -> ${q.answer}`)
-            .join("\n"),
-        },
-        content.questions.length,
+    // Alignment and translation are independent and hit different providers, so
+    // they run together. Sequentially they cost the teacher a whole extra model
+    // round-trip — measured at over three minutes for one worksheet. Alignment
+    // only reads `prompt` and `answer`; translation only writes the `*Sat`
+    // fields, so sharing `content` between them is safe.
+    const sideWorkStart = Date.now();
+    const teacher = parsed.data.translate ? await getCurrentTeacher() : null;
+
+    const [alignmentResult, translationOutcome] = await Promise.all([
+      tryBuildAlignment(() =>
+        buildSheetAlignment(
+          llm,
+          {
+            title: content.title,
+            grade: parsed.data.grade,
+            subject: parsed.data.subject,
+            topic: parsed.data.topic,
+            body: content.questions
+              .map((q, i) => `${i}. [${q.type}] ${q.prompt} -> ${q.answer}`)
+              .join("\n"),
+          },
+          content.questions.length,
+        ),
       ),
-    );
+      parsed.data.translate
+        ? translateSheet(content, {
+            service: new TranslationService(),
+            sourceCode: pair.source.code,
+            targetCode: pair.target.code,
+            userId: teacher?.id ?? null,
+          })
+        : Promise.resolve(null),
+    ]);
 
-    let translateMs = 0;
-    let translationNote: string | null = "Translation was skipped for this run.";
-
-    if (parsed.data.translate) {
-      const translateStart = Date.now();
-      const teacher = await getCurrentTeacher();
-      const outcome = await translateSheet(content, {
-        service: new TranslationService(),
-        sourceCode: pair.source.code,
-        targetCode: pair.target.code,
-        userId: teacher?.id ?? null,
-      });
-      translationNote = outcome.note;
-      translateMs = Date.now() - translateStart;
-    }
+    const { alignment, note: alignmentNote } = alignmentResult;
+    const translationNote = translationOutcome
+      ? translationOutcome.note
+      : "Translation was skipped for this run.";
+    const translateMs = parsed.data.translate ? Date.now() - sideWorkStart : 0;
 
     return Response.json({
       success: true,
