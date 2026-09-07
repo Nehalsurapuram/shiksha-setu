@@ -65,14 +65,23 @@ enum AssessmentKind {
   WRITTEN
   PICTURE_BASED
   LISTENING
+  MIXED
 }
 
+/// The worksheet's overall shape. Individual questions carry their own type
+/// inside `content`, so a sheet mixing formats is MIXED rather than being
+/// forced into whichever kind happens to appear first.
 enum WorksheetKind {
   MATCHING
   FILL_IN_BLANKS
   READING
   PICTURE_LABELLING
   WORD_HUNT
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  SHORT_ANSWER
+  COUNTING
+  MIXED
 }
 
 enum SyncStatus {
@@ -324,8 +333,19 @@ model Worksheet {
   title        String
   kind         WorksheetKind @default(MATCHING)
   grade        Int?
+  subject      String?
+  topic        String?
+  /// "easy" | "medium" | "hard", as chosen by the teacher who generated it.
+  difficulty   String?
   instructions String?       @db.Text
-  content      Json // question and answer payload
+  /// Bilingual question payload. Each entry carries its own type and its own
+  /// `sat` field, which is null when that string was not translated.
+  content      Json
+  /// Which provider and model drafted this, and whether a teacher has since
+  /// edited it. Null provider means a teacher wrote the whole thing.
+  provider     String?
+  model        String?
+  isEdited     Boolean       @default(false)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
@@ -345,7 +365,20 @@ model Flashcard {
   frontText       String
   backText        String
   imageUrl        String?
+  /// A single emoji standing in for a picture. No image model is configured,
+  /// so this is an icon chosen for the word — never a generated photograph
+  /// presented as one.
+  icon            String?
   exampleSentence String?  @db.Text
+  /// Cards generated together share a deck id, so a saved set can be reopened
+  /// as the set it was.
+  deckId          String?
+  deckTitle       String?
+  grade           Int?
+  subject         String?
+  provider        String?
+  model           String?
+  isEdited        Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -363,6 +396,7 @@ model Flashcard {
   @@index([lessonId])
   @@index([languageId])
   @@index([createdById])
+  @@index([deckId])
 }
 
 model Assessment {
@@ -370,8 +404,17 @@ model Assessment {
   title     String
   kind      AssessmentKind @default(ORAL)
   grade     Int?
+  subject   String?
+  topic     String?
+  difficulty String?
+  /// Bilingual questions, each with its own type and its own correct answer.
+  /// The answer key is rendered from this rather than stored twice, so the two
+  /// can never drift apart.
   questions Json
   maxScore  Int            @default(10)
+  provider  String?
+  model     String?
+  isEdited  Boolean        @default(false)
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 

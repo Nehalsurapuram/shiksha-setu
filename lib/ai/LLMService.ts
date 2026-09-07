@@ -8,6 +8,15 @@ import {
   type LLMProviderId,
 } from "@/lib/ai/llm-provider";
 import {
+  ASSESSMENT_JSON_SCHEMA,
+  FLASHCARD_JSON_SCHEMA,
+  WORKSHEET_JSON_SCHEMA,
+  type Difficulty,
+  type QuestionType,
+  type RawDeck,
+  type RawSheet,
+} from "@/lib/ai/generated-content";
+import {
   TEACHING_PACKAGE_JSON_SCHEMA,
   type GeneratedPackage,
 } from "@/lib/ai/teaching-package";
@@ -148,6 +157,57 @@ export class LLMService {
     return data.practiceQuestions;
   }
 
+  /**
+   * A worksheet of `count` questions across the requested formats.
+   *
+   * Counts and format coverage are stated in the prompt because a JSON schema
+   * cannot express them: an array of one satisfies the schema exactly as well
+   * as an array of ten, and smaller models return the minimum they can.
+   */
+  async generateWorksheet(request: SheetRequest): Promise<RawSheet> {
+    const { data } = await this.#provider.complete<RawSheet>({
+      system: SYSTEM,
+      user: buildSheetPrompt(request, "worksheet"),
+      schemaName: "worksheet",
+      schema: WORKSHEET_JSON_SCHEMA,
+    });
+    return data;
+  }
+
+  /** An assessment. Same shape as a worksheet; different framing and marks. */
+  async generateAssessment(request: SheetRequest): Promise<RawSheet> {
+    const { data } = await this.#provider.complete<RawSheet>({
+      system: SYSTEM,
+      user: buildSheetPrompt(request, "assessment"),
+      schemaName: "assessment",
+      schema: ASSESSMENT_JSON_SCHEMA,
+    });
+    return data;
+  }
+
+  async generateFlashcards(request: DeckRequest): Promise<RawDeck> {
+    const { data } = await this.#provider.complete<RawDeck>({
+      system: SYSTEM,
+      user: [
+        `Produce exactly ${request.count} vocabulary flashcards for the topic below.`,
+        "Each card is ONE word a child of this class would meet in this topic — not a phrase.",
+        "The meaning must be one short line a child can understand.",
+        "The example sentence must be one short sentence using the word.",
+        "For the icon, give a single emoji that pictures the word concretely. If no emoji fits the word, use null rather than a vague one.",
+        "",
+        `Class: ${request.grade ?? "primary"}`,
+        request.subject ? `Subject: ${request.subject}` : "",
+        `Topic: ${request.topic}`,
+        `Source language: ${request.languageName}`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      schemaName: "flashcard_deck",
+      schema: FLASHCARD_JSON_SCHEMA,
+    });
+    return data;
+  }
+
   async generateHomework(context: LessonContext): Promise<string> {
     const { data } = await this.#provider.complete<{ homework: string }>({
       system: SYSTEM,
@@ -160,6 +220,61 @@ export class LLMService {
     });
     return data.homework;
   }
+}
+
+export type SheetRequest = {
+  grade: number | null;
+  subject: string | null;
+  topic: string;
+  difficulty: Difficulty;
+  count: number;
+  questionTypes: QuestionType[];
+  languageName: string;
+  /** Optional source passage to draw the questions from. */
+  sourceText?: string | null;
+};
+
+export type DeckRequest = {
+  grade: number | null;
+  subject: string | null;
+  topic: string;
+  count: number;
+  languageName: string;
+};
+
+const DIFFICULTY_GUIDE: Record<Difficulty, string> = {
+  easy: "Keep it recall-level: one step, familiar words, answers stated plainly in the topic.",
+  medium: "Mix recall with one-step reasoning. Some questions should need the child to apply the idea.",
+  hard: "Require two-step reasoning or explanation in the child's own words. Still Class-appropriate.",
+};
+
+function buildSheetPrompt(
+  request: SheetRequest,
+  what: "worksheet" | "assessment",
+): string {
+  const types = request.questionTypes.length
+    ? request.questionTypes
+    : (["MULTIPLE_CHOICE", "FILL_IN_BLANK", "SHORT_ANSWER"] as QuestionType[]);
+
+  return [
+    `Produce a ${what} of exactly ${request.count} questions.`,
+    `Use ONLY these question types, spread as evenly as the count allows: ${types.join(", ")}.`,
+    "Every question must have a correct answer filled in.",
+    "MULTIPLE_CHOICE needs exactly 4 options with exactly one correct. MATCHING needs 3-5 pairs. Other types leave options and pairs as empty arrays.",
+    "PICTURE_BASED and COUNTING must set a single emoji as the icon; every other type sets icon to null.",
+    what === "assessment"
+      ? "This is an assessment, so questions must be answerable independently by a child without help, and marks should total a sensible whole number."
+      : "This is practice, so questions may build on each other and the instructions should be encouraging.",
+    DIFFICULTY_GUIDE[request.difficulty],
+    "",
+    `Class: ${request.grade ?? "primary"}`,
+    request.subject ? `Subject: ${request.subject}` : "",
+    `Topic: ${request.topic}`,
+    `Source language: ${request.languageName}`,
+    request.sourceText ? `\nBase the questions on this text:\n${request.sourceText.slice(0, MAX_LESSON_CHARS)}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function buildPrompt(context: LessonContext, instruction: string): string {
