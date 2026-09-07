@@ -80,7 +80,7 @@ export const FEATURES: Feature[] = [
   {
     title: "Bilingual Worksheets",
     description:
-      "Printable practice sheets in both languages — matching, fill-in-the-blank, reading and picture labelling — generated from a lesson.",
+      "Printable practice sheets in both languages — multiple choice, fill-in-the-blank, true/false, matching, picture and counting questions.",
     icon: "FileText",
     state: "built",
     phase: 3,
@@ -88,7 +88,7 @@ export const FEATURES: Feature[] = [
   {
     title: "Visual Flashcards",
     description:
-      "Picture-and-word cards pairing the Hindi and Santhali term, with a recorded pronunciation attached to each card.",
+      "Picture-and-word cards pairing the Hindi and Santhali term, with an emoji picture and spoken Hindi. There is no Santhali voice yet.",
     icon: "Layers",
     state: "built",
     phase: 3,
