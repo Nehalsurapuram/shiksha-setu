@@ -115,7 +115,7 @@ model School {
   users            User[]
   lessons          Lesson[]
   analyticsEvents  AnalyticsEvent[]
-  learningOutcomes LearningOutcome[]
+  outcomeObservations OutcomeObservation[]
   classroomSessions ClassroomSession[]
 
   @@index([district, block])
@@ -151,7 +151,7 @@ model User {
   assessments      Assessment[]
   audios           Audio[]
   corrections      TranslationCorrection[]
-  learningOutcomes LearningOutcome[]
+  outcomeObservations OutcomeObservation[]
   syncItems        SyncItem[]
   analyticsEvents  AnalyticsEvent[]
   classroomSessions ClassroomSession[]
@@ -242,7 +242,7 @@ model Lesson {
   flashcards       Flashcard[]
   assessments      Assessment[]
   audios           Audio[]
-  learningOutcomes LearningOutcome[]
+  outcomeObservations OutcomeObservation[]
   teachingPackage  TeachingPackage?
 
   @@index([authorId])
@@ -424,7 +424,7 @@ model Assessment {
   createdById String
   createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
 
-  learningOutcomes LearningOutcome[]
+  outcomeObservations OutcomeObservation[]
 
   @@index([lessonId])
   @@index([createdById])
@@ -465,9 +465,14 @@ model Audio {
 
 // ---------------------------------------------------------------- outcomes, sync, analytics
 
-model LearningOutcome {
+/// A single observation of one child's progress: what they were seen to do,
+/// and when. This is evidence, not a definition — the definitions live in
+/// LearningOutcome.
+model OutcomeObservation {
   id          String   @id @default(cuid())
-  code        String? // e.g. an NCERT learning-outcome code
+  /// Only ever an official code that came from verified source data. Never a
+  /// code produced by a model.
+  code        String?
   description String   @db.Text
   grade       Int?
   subject     String?
