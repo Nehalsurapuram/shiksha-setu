@@ -189,6 +189,7 @@ export class LLMService {
     const { data } = await this.#provider.complete<RawDeck>({
       system: SYSTEM,
       user: [
+        `Write EVERYTHING in ${request.languageName} only. Do not use any other language or script.`,
         `Produce exactly ${request.count} vocabulary flashcards for the topic below.`,
         "Each card is ONE word a child of this class would meet in this topic — not a phrase.",
         "The meaning must be one short line a child can understand.",
@@ -257,6 +258,12 @@ function buildSheetPrompt(
     : (["MULTIPLE_CHOICE", "FILL_IN_BLANK", "SHORT_ANSWER"] as QuestionType[]);
 
   return [
+    // Stated first and repeated at the end. Observed drift: asked for a Hindi
+    // worksheet on "पेड़", the model returned its title in Odia. The models
+    // here are multilingual and will wander between Indic languages unless the
+    // output language is pinned explicitly rather than merely implied by the
+    // topic's script.
+    `Write EVERYTHING — title, instructions, questions, options and answers — in ${request.languageName} only. Do not use any other language or script.`,
     `Produce a ${what} of exactly ${request.count} questions.`,
     `Use ONLY these question types, spread as evenly as the count allows: ${types.join(", ")}.`,
     "Every question must have a correct answer filled in.",

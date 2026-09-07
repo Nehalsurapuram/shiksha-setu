@@ -190,10 +190,13 @@ export class SarvamLLMProvider implements LLMProvider {
         requestId: payload.id ?? null,
       };
     } catch (cause) {
+      // Strict schema mode still occasionally emits text that will not parse.
+      // Observed on the same request that parses cleanly on the next attempt,
+      // so it is worth one retry rather than a dead end for the teacher.
       throw new LLMError(
         "MALFORMED_OUTPUT",
         "The generated material could not be read. Try again.",
-        { status: 502, cause },
+        { status: 502, cause, retryable: true },
       );
     }
   }
