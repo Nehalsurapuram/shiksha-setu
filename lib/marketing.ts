@@ -82,7 +82,7 @@ export const FEATURES: Feature[] = [
     description:
       "Printable practice sheets in both languages — matching, fill-in-the-blank, reading and picture labelling — generated from a lesson.",
     icon: "FileText",
-    state: "planned",
+    state: "built",
     phase: 3,
   },
   {
@@ -90,7 +90,7 @@ export const FEATURES: Feature[] = [
     description:
       "Picture-and-word cards pairing the Hindi and Santhali term, with a recorded pronunciation attached to each card.",
     icon: "Layers",
-    state: "planned",
+    state: "built",
     phase: 3,
   },
   {

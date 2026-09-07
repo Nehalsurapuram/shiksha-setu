@@ -42,14 +42,14 @@ export const QUICK_ACTIONS: QuickAction[] = [
     label: "Generate Worksheet",
     href: "/worksheets",
     icon: "FileText",
-    phase: 2,
+    phase: 1,
     hint: "Printable practice",
   },
   {
     label: "Generate Flashcards",
     href: "/flashcards",
     icon: "Layers",
-    phase: 2,
+    phase: 1,
     hint: "Picture and word cards",
   },
 ];
