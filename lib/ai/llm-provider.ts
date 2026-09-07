@@ -48,17 +48,23 @@ export class LLMError extends Error {
   /** Safe to show a teacher: no URLs, no keys, no prompt contents. */
   readonly publicMessage: string;
   readonly status: number;
+  /**
+   * True when the same request might succeed unchanged on a second attempt.
+   * A flaky empty generation is; a rejected key or an exhausted budget is not.
+   */
+  readonly retryable: boolean;
 
   constructor(
     code: LLMErrorCode,
     publicMessage: string,
-    options?: { status?: number; cause?: unknown },
+    options?: { status?: number; cause?: unknown; retryable?: boolean },
   ) {
     super(`${code}: ${publicMessage}`, { cause: options?.cause });
     this.name = "LLMError";
     this.code = code;
     this.publicMessage = publicMessage;
     this.status = options?.status ?? 400;
+    this.retryable = options?.retryable ?? false;
   }
 }
 

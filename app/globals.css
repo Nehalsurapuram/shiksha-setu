@@ -284,3 +284,62 @@
     transform: none !important;
   }
 }
+
+/* ---------------------------------------------------------------- print */
+
+/*
+ * Printing a worksheet is a real classroom step, not an afterthought: a rural
+ * school prints once and photocopies. So the print sheet drops everything that
+ * is not the questions, and never splits a question across a page break.
+ */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* The app shell is navigation, not content. */
+  aside,
+  header,
+  nav,
+  footer {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+
+  /* Fields are edited on screen and read on paper. */
+  input,
+  textarea,
+  select {
+    border: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    color: #000 !important;
+    resize: none !important;
+    font-size: 12pt !important;
+  }
+
+  textarea {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  [data-slot="card"] {
+    border: 0 !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print\:break-before-page {
+    break-before: page;
+    page-break-before: always;
+  }
+}

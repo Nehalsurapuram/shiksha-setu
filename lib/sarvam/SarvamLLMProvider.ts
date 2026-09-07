@@ -26,8 +26,16 @@ import { SARVAM_BASE_URL } from "@/lib/sarvam/client";
  */
 const SARVAM_CHAT_MODEL = "sarvam-105b";
 const REQUEST_TIMEOUT_MS = 180_000;
-/** Must cover reasoning tokens *plus* the answer, not just the answer. */
-const MAX_TOKENS = 8000;
+/**
+ * Must cover reasoning tokens *plus* the answer, not just the answer.
+ *
+ * Measured: a four-question worksheet failed with `finish_reason: length` at
+ * 8000 and completed at 16000, having emitted under 4000 tokens of actual
+ * answer. The reasoning is where the budget goes, and a larger schema reasons
+ * for longer, so this is sized for the biggest schema here rather than the
+ * average one. Unused budget costs nothing — only emitted tokens are billed.
+ */
+const MAX_TOKENS = 16_000;
 
 type ChatResponse = {
   id?: string;
@@ -59,7 +67,28 @@ export class SarvamLLMProvider implements LLMProvider {
     this.#apiKey = apiKey;
   }
 
+  /**
+   * Retries once when the model returns an empty answer.
+   *
+   * Observed in practice: the same request fails with `content: null` and then
+   * succeeds unchanged on the next attempt. That is a flaky generation, not a
+   * bad request, and asking a teacher to press Generate again for it wastes a
+   * minute of their time. Retried only for that case — a rejected credential
+   * or a schema the model cannot satisfy fails identically every time, and
+   * `finish_reason: length` needs a bigger budget, not another attempt.
+   */
   async complete<T>(request: StructuredRequest): Promise<StructuredResult<T>> {
+    try {
+      return await this.#attempt<T>(request);
+    } catch (error) {
+      if (error instanceof LLMError && error.code === "MALFORMED_OUTPUT" && error.retryable) {
+        return this.#attempt<T>(request);
+      }
+      throw error;
+    }
+  }
+
+  async #attempt<T>(request: StructuredRequest): Promise<StructuredResult<T>> {
     if (request.images?.length) {
       // Refuse rather than silently ignoring the image and answering from the
       // prompt alone, which would invent a transcript of a page it never saw.
@@ -142,12 +171,14 @@ export class SarvamLLMProvider implements LLMProvider {
     // The reasoning-budget failure: HTTP 200, no error, empty content. Without
     // this check it would surface as unreadable JSON and look like a bug.
     if (!content) {
+      const ranOutOfRoom = choice?.finish_reason === "length";
       throw new LLMError(
         "MALFORMED_OUTPUT",
-        choice?.finish_reason === "length"
-          ? "Generation ran out of room before finishing. Try a shorter lesson."
+        ranOutOfRoom
+          ? "Generation ran out of room before finishing. Ask for fewer questions."
           : "The generation service returned nothing usable. Try again.",
-        { status: 502 },
+        // A longer budget is the fix for "length"; another attempt is not.
+        { status: 502, retryable: !ranOutOfRoom },
       );
     }
 

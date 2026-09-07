@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Printer, RefreshCw, Save, Sparkles } from "lucide-react";
+import { AlertTriangle, Printer, RefreshCw, Save } from "lucide-react";
 
 import {
   GeneratorForm,
