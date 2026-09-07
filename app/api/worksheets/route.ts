@@ -5,6 +5,7 @@ import {
   WorksheetContentSchema,
   worksheetKindFor,
 } from "@/lib/ai/generated-content";
+import { StoredAlignmentSchema } from "@/lib/fln/alignment";
 import { fail } from "@/lib/api/speech-responses";
 import { prisma } from "@/lib/database/prisma";
 import { getCurrentTeacher } from "@/lib/database/queries";
@@ -21,6 +22,7 @@ const BodySchema = z.object({
   provider: z.string().trim().max(40).nullable().default(null),
   model: z.string().trim().max(80).nullable().default(null),
   isEdited: z.boolean().default(false),
+  alignment: StoredAlignmentSchema.nullable().default(null),
 });
 
 /**
@@ -68,6 +70,7 @@ export async function POST(request: Request) {
         provider: input.provider,
         model: input.model,
         isEdited: input.isEdited,
+        alignment: (input.alignment ?? undefined) as Prisma.InputJsonValue | undefined,
         createdById: teacher.id,
       },
       select: { id: true, title: true },

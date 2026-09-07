@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { Prisma } from "@prisma/client";
+
 import { prisma } from "@/lib/database/prisma";
 
 export type CatalogueStatus = {
@@ -50,20 +52,30 @@ export async function findVerifiedOutcomes(options: {
   subject: string | null;
   take?: number;
 }) {
+  // Both filters are "matches, or applies to every class/subject", so each is
+  // its own OR group inside a single AND. Spreading two `OR` keys into one
+  // object silently drops the first — the class filter would simply vanish.
+  const AND: Prisma.LearningOutcomeWhereInput[] = [];
+
+  if (options.classLevel !== null) {
+    AND.push({
+      OR: [{ classLevel: options.classLevel }, { classLevel: null }],
+    });
+  }
+
+  if (options.subject) {
+    AND.push({
+      OR: [
+        { subject: { equals: options.subject, mode: "insensitive" } },
+        { subject: null },
+      ],
+    });
+  }
+
   return prisma.learningOutcome.findMany({
     where: {
       verifiedSource: { not: null },
-      ...(options.classLevel === null
-        ? {}
-        : { OR: [{ classLevel: options.classLevel }, { classLevel: null }] }),
-      ...(options.subject
-        ? {
-            OR: [
-              { subject: { equals: options.subject, mode: "insensitive" } },
-              { subject: null },
-            ],
-          }
-        : {}),
+      ...(AND.length > 0 ? { AND } : {}),
     },
     orderBy: [{ learningArea: "asc" }, { competency: "asc" }],
     take: options.take ?? 25,

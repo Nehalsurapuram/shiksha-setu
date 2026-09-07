@@ -8,6 +8,7 @@ import {
   type GeneratorInputs,
 } from "@/components/generators/generator-form";
 import { SheetEditor } from "@/components/generators/sheet-editor";
+import { AlignmentCard } from "@/components/fln/alignment-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +22,7 @@ import type {
   QuestionType,
   WorksheetContent,
 } from "@/lib/ai/generated-content";
+import type { StoredAlignment } from "@/lib/fln/alignment";
 import { cn } from "@/lib/utils";
 
 type Failure = { success: false; error: { code: string; message: string } };
@@ -31,6 +33,8 @@ type Success = {
   model: string;
   translationNote: string | null;
   warnings: string[];
+  alignment: StoredAlignment | null;
+  alignmentNote: string | null;
   processingTimeMs: number;
 };
 
@@ -70,6 +74,8 @@ export function SheetWorkspace({
     warnings: string[];
     processingTimeMs: number;
   } | null>(null);
+  const [alignment, setAlignment] = useState<StoredAlignment | null>(null);
+  const [alignmentNote, setAlignmentNote] = useState<string | null>(null);
   const [isEdited, setIsEdited] = useState(false);
   const [busy, setBusy] = useState<null | "generate" | "save">(null);
   const [error, setError] = useState<string | null>(null);
@@ -109,6 +115,8 @@ export function SheetWorkspace({
         warnings: payload.warnings ?? [],
         processingTimeMs: payload.processingTimeMs,
       });
+      setAlignment(payload.alignment ?? null);
+      setAlignmentNote(payload.alignmentNote ?? null);
       setIsEdited(false);
     } catch {
       setError("Could not reach the server. Check the connection.");
@@ -135,6 +143,7 @@ export function SheetWorkspace({
           provider: meta?.provider ?? null,
           model: meta?.model ?? null,
           isEdited,
+          alignment,
         }),
       });
       const payload = (await response.json()) as
@@ -276,6 +285,14 @@ export function SheetWorkspace({
             </span>{" "}
             The {targetName} column is machine translated and can be wrong.
           </p>
+
+          <AlignmentCard
+            alignment={alignment}
+            note={alignmentNote}
+            questions={content.questions}
+            variant={isAssessment ? "assessment" : "worksheet"}
+            difficulty={inputs.difficulty}
+          />
 
           <label className="flex items-center gap-2 text-sm print:hidden">
             <input

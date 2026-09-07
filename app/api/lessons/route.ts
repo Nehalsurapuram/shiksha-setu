@@ -1,8 +1,10 @@
 import { z } from "zod";
 
 import { TeachingPackageSchema } from "@/lib/ai/teaching-package";
+import { StoredAlignmentSchema } from "@/lib/fln/alignment";
 import { fail } from "@/lib/api/speech-responses";
 import { prisma } from "@/lib/database/prisma";
+import type { Prisma } from "@prisma/client";
 import {
   getCurrentTeacher,
   getDefaultLanguagePair,
@@ -26,6 +28,7 @@ const BodySchema = z.object({
   packageModel: z.string().trim().max(80).nullable().optional(),
   /** True once a teacher has changed any generated field. */
   packageIsEdited: z.boolean().default(false),
+  alignment: StoredAlignmentSchema.nullable().default(null),
 });
 
 /**
@@ -84,6 +87,7 @@ export async function POST(request: Request) {
         sourceLanguageId: pair.source.id,
         targetLanguageId: pair.target.id,
         lastOpenedAt: new Date(),
+        alignment: (input.alignment ?? undefined) as Prisma.InputJsonValue | undefined,
         ...(input.package
           ? {
               teachingPackage: {

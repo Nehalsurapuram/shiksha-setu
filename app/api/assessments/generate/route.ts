@@ -8,6 +8,10 @@ import {
   toSheetContent,
 } from "@/lib/ai/generated-content";
 import { enforceSheetRequest } from "@/lib/ai/enforce-request";
+import {
+  buildSheetAlignment,
+  tryBuildAlignment,
+} from "@/lib/fln/generate-alignment";
 import { translateSheet } from "@/lib/ai/translate-sheet";
 import { TranslationService } from "@/lib/ai/TranslationService";
 import { fail } from "@/lib/api/speech-responses";
@@ -79,6 +83,22 @@ export async function POST(request: Request) {
       languageCode: pair.source.code,
     });
 
+    const { alignment, note: alignmentNote } = await tryBuildAlignment(() =>
+      buildSheetAlignment(
+        llm,
+        {
+          title: content.title,
+          grade: parsed.data.grade,
+          subject: parsed.data.subject,
+          topic: parsed.data.topic,
+          body: content.questions
+            .map((q, i) => `${i}. [${q.type}] ${q.prompt} -> ${q.answer}`)
+            .join("\n"),
+        },
+        content.questions.length,
+      ),
+    );
+
     let translateMs = 0;
     let translationNote: string | null = "Translation was skipped for this run.";
 
@@ -104,6 +124,8 @@ export async function POST(request: Request) {
       targetLanguage: { code: pair.target.code, name: pair.target.name },
       translationNote,
       warnings: enforcement.warnings,
+      alignment,
+      alignmentNote,
       processingTimeMs: Date.now() - startedAt,
       timings: { generateMs, translateMs },
     });

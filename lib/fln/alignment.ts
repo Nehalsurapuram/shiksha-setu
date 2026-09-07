@@ -147,21 +147,53 @@ export const SHEET_ALIGNMENT_JSON_SCHEMA = {
  * because the cost of one slipping through is a false claim about government
  * policy.
  */
+/** Framework names a model reaches for when it wants to sound official. */
+const FRAMEWORK = String.raw`NIPUN(?:\s+Bharat)?|FLN|NCERT|NCF|CBSE|SCERT`;
+
 const CODE_PATTERNS: RegExp[] = [
-  // "FLN 2.3", "NIPUN 1.2.3", "LO 4.1", with or without a separator.
-  /\b(?:NIPUN|FLN|LO|NCERT|NCF|CBSE)\b[\s:_-]*\d+(?:\.\d+)*/gi,
-  // "LO-M-104", "FLN-L-2"
+  // A whole parenthetical that names a framework or is just a code:
+  // "(NIPUN FLN 2.3)", "(Code: 2.3.1)", "(ref 4.1)".
+  new RegExp(String.raw`\([^)]*(?:${FRAMEWORK}|code|ref(?:erence)?)[^)]*\)`, "gi"),
+  // Hyphenated codes first: "LO-M-104", "FLN-L-2". If the bare-name pattern
+  // below ran first it would eat the "FLN" and leave "-L-2" behind.
   /\b(?:LO|FLN|NIPUN)[-_][A-Z]{1,3}[-_]?\d+/gi,
-  // Bare bracketed codes: "(Code: 2.3.1)"
-  /\(\s*(?:code|ref|reference)\s*:?[^)]*\)/gi,
+  // Framework names followed by a code: "NIPUN Bharat FLN 2.3".
+  new RegExp(String.raw`\b(?:(?:${FRAMEWORK})\b[\s:_-]*)+\d+(?:\.\d+)*`, "gi"),
+  // A bare "LO 4.1" style reference.
+  /\bLO\b[\s:_-]*\d+(?:\.\d+)*/gi,
+  // Finally the bare framework name on its own.
+  new RegExp(String.raw`\b(?:${FRAMEWORK})\b`, "gi"),
 ];
 
+/**
+ * Removes anything that would read as an official citation.
+ *
+ * The prompt forbids codes; this enforces it, because the cost of one slipping
+ * through is a false claim about government policy travelling on a printed
+ * worksheet. It strips framework *names* too, not only codes: a stray "(NIPUN
+ * )" left behind after removing the number still reads as an official mapping.
+ *
+ * Over-removal is the acceptable direction. These fields are meant to describe
+ * what a child can do, so losing the words "NCERT" or "FLN 2.3" costs nothing.
+ */
 export function stripInventedCodes(text: string): string {
   let cleaned = text;
   for (const pattern of CODE_PATTERNS) {
-    cleaned = cleaned.replace(pattern, "");
+    cleaned = cleaned.replace(pattern, " ");
   }
-  return cleaned.replace(/\s{2,}/g, " ").replace(/\s+([.,;:])/g, "$1").trim();
+  return (
+    cleaned
+      // Brackets emptied by the removals above.
+      .replace(/\(\s*[),.;:]?\s*\)/g, " ")
+      .replace(/\[\s*\]/g, " ")
+      .replace(/\s{2,}/g, " ")
+      .replace(/\s+([.,;:)])/g, "$1")
+      .replace(/\(\s+/g, "(")
+      // Trailing conjunctions and punctuation left dangling by a removal.
+      .replace(/[\s,;:]*\b(?:and|with|per|as)\s*$/i, "")
+      .replace(/^[\s,;:.-]+/, "")
+      .trim()
+  );
 }
 
 export function containsInventedCode(text: string): boolean {
