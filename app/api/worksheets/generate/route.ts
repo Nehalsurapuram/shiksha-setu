@@ -7,6 +7,7 @@ import {
   QUESTION_TYPES,
   toSheetContent,
 } from "@/lib/ai/generated-content";
+import { enforceSheetRequest } from "@/lib/ai/enforce-request";
 import { translateSheet } from "@/lib/ai/translate-sheet";
 import { TranslationService } from "@/lib/ai/TranslationService";
 import { fail } from "@/lib/api/speech-responses";
@@ -69,6 +70,15 @@ export async function POST(request: Request) {
 
     const content = toSheetContent(generated);
 
+    // The model does not reliably honour count, format or language, so the
+    // request is enforced here rather than hoped for. Anything removed is
+    // reported to the teacher instead of vanishing.
+    const enforcement = enforceSheetRequest(content, {
+      count: parsed.data.count,
+      questionTypes: parsed.data.questionTypes,
+      languageCode: pair.source.code,
+    });
+
     let translateMs = 0;
     let translationNote: string | null = "Translation was skipped for this run.";
 
@@ -93,6 +103,7 @@ export async function POST(request: Request) {
       sourceLanguage: { code: pair.source.code, name: pair.source.name },
       targetLanguage: { code: pair.target.code, name: pair.target.name },
       translationNote,
+      warnings: enforcement.warnings,
       processingTimeMs: Date.now() - startedAt,
       timings: { generateMs, translateMs },
     });

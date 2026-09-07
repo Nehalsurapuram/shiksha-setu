@@ -30,6 +30,7 @@ type Success = {
   provider: string;
   model: string;
   translationNote: string | null;
+  warnings: string[];
   processingTimeMs: number;
 };
 
@@ -66,6 +67,7 @@ export function SheetWorkspace({
     provider: string;
     model: string;
     translationNote: string | null;
+    warnings: string[];
     processingTimeMs: number;
   } | null>(null);
   const [isEdited, setIsEdited] = useState(false);
@@ -104,6 +106,7 @@ export function SheetWorkspace({
         provider: payload.provider,
         model: payload.model,
         translationNote: payload.translationNote,
+        warnings: payload.warnings ?? [],
         processingTimeMs: payload.processingTimeMs,
       });
       setIsEdited(false);
@@ -245,6 +248,19 @@ export function SheetWorkspace({
             <p className="rounded-lg border border-success/40 bg-success/10 p-3 text-sm text-success print:hidden">
               {saved}
             </p>
+          ) : null}
+
+          {meta?.warnings.length ? (
+            <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">
+              <p className="font-medium">
+                Some generated questions were removed before you saw them:
+              </p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-5">
+                {meta.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            </div>
           ) : null}
 
           {meta?.translationNote ? (
