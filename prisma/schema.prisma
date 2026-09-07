@@ -215,6 +215,10 @@ model Lesson {
   originalFileName String?
   sourceFormat     String?
   extractionMethod String?
+  /// Suggested FLN alignment for this material: plain-language learning area,
+  /// competency and outcome produced by a model, never official codes. Null
+  /// when no alignment has been generated.
+  alignment       Json?
   status          LessonStatus @default(DRAFT)
   isOfflinePinned Boolean      @default(false)
   /// Seeded demo content, not a teacher's own work. The UI labels these so a
@@ -343,6 +347,7 @@ model Worksheet {
   content      Json
   /// Which provider and model drafted this, and whether a teacher has since
   /// edited it. Null provider means a teacher wrote the whole thing.
+  alignment    Json?
   provider     String?
   model        String?
   isEdited     Boolean       @default(false)
@@ -412,6 +417,7 @@ model Assessment {
   /// can never drift apart.
   questions Json
   maxScore  Int            @default(10)
+  alignment Json?
   provider  String?
   model     String?
   isEdited  Boolean        @default(false)
@@ -633,4 +639,41 @@ model TeachingPackage {
 
   lessonId String  @unique
   lesson   Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------- FLN alignment
+
+/// A learning-outcome *definition* from a curriculum framework.
+///
+/// This is a catalogue, not a generated artefact. The whole point of the table
+/// is `verifiedSource`: a row with a source came from a real published
+/// document that somebody loaded and can be checked against, and a row without
+/// one did not.
+///
+/// This installation ships with the table EMPTY. No NIPUN Bharat or NCERT
+/// mapping has been loaded, so nothing in the product may present itself as
+/// official alignment. Generated alignments are labelled "Suggested FLN
+/// Alignment" and are never written here.
+model LearningOutcome {
+  id           String   @id @default(cuid())
+  /// e.g. "Foundational Literacy", "Foundational Numeracy".
+  learningArea String
+  competency   String   @db.Text
+  outcome      String   @db.Text
+  /// The class this outcome belongs to. Null means it spans several.
+  classLevel   Int?
+  subject      String?
+  /// Citation for where this came from — a document title, edition and page,
+  /// or a URL. NULL MEANS UNVERIFIED, and the UI must say so. Nothing written
+  /// by a model may ever set this field.
+  verifiedSource String?
+  /// The framework's own code, only ever copied from verified source data.
+  /// Never generated, never inferred.
+  code         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([learningArea, competency, outcome, classLevel])
+  @@index([classLevel, subject])
+  @@index([verifiedSource])
 }
