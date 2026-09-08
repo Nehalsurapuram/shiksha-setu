@@ -1,25 +1,61 @@
 /*
- * ShikshaSetu AI — Phase 1 service worker.
+ * ShikshaSetu AI service worker.
  *
- * Scope is deliberately narrow: it makes the *app shell* open without a
- * network. It does not cache lessons, translations, audio, or any API
- * response, because caching content a teacher would then act on is only safe
- * once the sync and conflict rules exist. That is Phase 2 work.
+ * What this does: keeps the application shell and the offline-capable routes
+ * openable with no network, so a teacher can reach their downloaded content.
+ *
+ * What it does NOT do, by design:
+ *  - Cache any API response. Translation, speech and generation are cloud
+ *    calls. Serving a stale one offline would present old output as if it were
+ *    a fresh answer, and there is no honest way to do that. They fail cleanly
+ *    instead, and the UI explains why.
+ *  - Cache anything carrying credentials. Nothing with an Authorization header
+ *    or an api key ever reaches the cache.
+ *
+ * The content itself — lessons, worksheets, flashcards, audio — lives in
+ * IndexedDB, not here. This worker only makes the pages that read it reachable.
  */
 
-const CACHE = "shikshasetu-shell-v1";
+const VERSION = "v2";
+const SHELL_CACHE = `shikshasetu-shell-${VERSION}`;
+const ASSET_CACHE = `shikshasetu-assets-${VERSION}`;
 const OFFLINE_URL = "/offline.html";
 
-const PRECACHE = [OFFLINE_URL, "/icons/icon.svg", "/manifest.webmanifest"];
+/**
+ * Routes that work with no network because they read from IndexedDB.
+ *
+ * Deliberately excluded: /translator, /voice-assistant, /classroom and the
+ * generators. Those need a cloud model; caching their shells would let a
+ * teacher open a translator that cannot translate.
+ */
+const OFFLINE_ROUTES = [
+  "/dashboard",
+  "/offline-sync",
+  "/lessons",
+  "/worksheets",
+  "/flashcards",
+  "/assessments",
+  "/curriculum",
+  "/settings",
+];
+
+const PRECACHE = [
+  OFFLINE_URL,
+  "/icons/icon.svg",
+  "/icons/icon-maskable.svg",
+  "/manifest.webmanifest",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
-      .open(CACHE)
+      .open(SHELL_CACHE)
       // Individually, so one missing asset cannot fail the whole install.
       .then((cache) =>
         Promise.all(
-          PRECACHE.map((url) => cache.add(url).catch(() => undefined)),
+          [...PRECACHE, ...OFFLINE_ROUTES].map((url) =>
+            cache.add(url).catch(() => undefined),
+          ),
         ),
       )
       .then(() => self.skipWaiting()),
@@ -31,10 +67,26 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))),
+        Promise.all(
+          keys
+            .filter((key) => key !== SHELL_CACHE && key !== ASSET_CACHE)
+            .map((key) => caches.delete(key)),
+        ),
       )
       .then(() => self.clients.claim()),
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data === "skip-waiting") self.skipWaiting();
+
+  // Lets the Offline & Sync screen empty the HTTP caches. IndexedDB content is
+  // cleared separately by the page itself.
+  if (event.data === "clear-caches") {
+    event.waitUntil(
+      caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key)))),
+    );
+  }
 });
 
 self.addEventListener("fetch", (event) => {
@@ -45,33 +97,76 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Never serve an API response from cache: stale classroom data presented as
-  // current is worse than an honest error.
+  // Never cache an API response — see the header comment. A stale translation
+  // served offline would be indistinguishable from a fresh one.
   if (url.pathname.startsWith("/api/")) return;
 
-  // Navigations: try the network, fall back to the offline page.
+  // Never cache a request carrying credentials.
+  if (request.headers.has("authorization")) return;
+
   if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request).catch(() =>
-        caches.match(OFFLINE_URL).then((cached) => cached ?? Response.error()),
-      ),
-    );
+    event.respondWith(handleNavigation(request, url));
     return;
   }
 
-  // Static build output is content-hashed, so cache-first is safe for it.
-  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/")) {
-    event.respondWith(
-      caches.match(request).then((cached) => {
-        if (cached) return cached;
-        return fetch(request).then((response) => {
-          if (response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE).then((cache) => cache.put(request, copy));
-          }
-          return response;
-        });
-      }),
-    );
+  // Build output is content-hashed, so cache-first is safe.
+  if (
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.startsWith("/icons/") ||
+    url.pathname === "/favicon.ico"
+  ) {
+    event.respondWith(cacheFirst(request));
   }
 });
+
+/**
+ * Network-first for pages, falling back to the cached shell.
+ *
+ * Network-first rather than cache-first because a teacher who *is* online
+ * should see current content; the cache is the safety net, not the default.
+ */
+async function handleNavigation(request, url) {
+  try {
+    const response = await fetch(request);
+
+    if (response.ok && isOfflineRoute(url.pathname)) {
+      const copy = response.clone();
+      caches.open(SHELL_CACHE).then((cache) => cache.put(request, copy));
+    }
+
+    return response;
+  } catch {
+    const cached = await caches.match(request, { ignoreSearch: true });
+    if (cached) return cached;
+
+    const offlinePage = await caches.match(OFFLINE_URL);
+    if (offlinePage) return offlinePage;
+
+    return new Response("Offline", {
+      status: 503,
+      headers: { "Content-Type": "text/plain" },
+    });
+  }
+}
+
+function isOfflineRoute(pathname) {
+  return OFFLINE_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  );
+}
+
+async function cacheFirst(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const copy = response.clone();
+      caches.open(ASSET_CACHE).then((cache) => cache.put(request, copy));
+    }
+    return response;
+  } catch {
+    return new Response("", { status: 504 });
+  }
+}
