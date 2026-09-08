@@ -4,202 +4,38 @@
  *   npm run build && npm start        # the worker is inactive in dev
  *   node scripts/offline-check.mjs
  *
- * Headful on purpose. Headless Chrome discards service worker registrations —
- * `register()` resolves and `getRegistration()` then returns nothing — so the
- * cached-shell path, the one thing most worth checking, cannot be exercised
- * there at all.
- *
  * "Offline" here is Chrome's own network emulation applied to the page *and*
  * the service worker target, so requests genuinely fail rather than being
  * answered by a server that is still running.
  */
-import { spawn } from "node:child_process";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import {
+  CDP,
+  browserWebSocket,
+  connect,
+  launchChrome,
+  openPage,
+  reporter,
+  wait,
+} from "./cdp.mjs";
 
-const CHROME =
-  process.env.CHROME_PATH ??
-  "C:/Program Files/Google/Chrome/Application/chrome.exe";
 const ORIGIN = "http://localhost:3000";
 const PORT = 9333;
 
-const userDataDir = mkdtempSync(path.join(tmpdir(), "sstest-"));
-const chrome = spawn(
-  CHROME,
-  [
-    `--remote-debugging-port=${PORT}`,
-    `--user-data-dir=${userDataDir}`,
-    "--no-first-run",
-    "--no-default-browser-check",
-    "--disable-features=Translate,OptimizationGuideModelDownloading",
-    "--window-size=1280,900",
-    "about:blank",
-  ],
-  { stdio: "ignore" },
-);
-
-const log = [];
-const say = (line) => {
-  log.push(line);
-  console.log(line);
-};
-
-async function browserWs() {
-  for (let i = 0; i < 60; i++) {
-    try {
-      const res = await fetch(`http://127.0.0.1:${PORT}/json/version`);
-      const json = await res.json();
-      if (json.webSocketDebuggerUrl) return json.webSocketDebuggerUrl;
-    } catch {}
-    await new Promise((r) => setTimeout(r, 500));
-  }
-  throw new Error("Chrome did not expose a debugging endpoint");
-}
-
-class CDP {
-  constructor(ws) {
-    this.ws = ws;
-    this.id = 0;
-    this.pending = new Map();
-    this.handlers = [];
-    ws.addEventListener("message", (event) => {
-      const msg = JSON.parse(event.data);
-      if (msg.id && this.pending.has(msg.id)) {
-        const { resolve, reject } = this.pending.get(msg.id);
-        this.pending.delete(msg.id);
-        if (msg.error) reject(new Error(JSON.stringify(msg.error)));
-        else resolve(msg.result);
-      } else {
-        for (const handler of this.handlers) handler(msg);
-      }
-    });
-  }
-
-  send(method, params = {}, sessionId) {
-    const id = ++this.id;
-    return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
-      this.ws.send(JSON.stringify({ id, method, params, sessionId }));
-      setTimeout(() => {
-        if (this.pending.has(id)) {
-          this.pending.delete(id);
-          reject(new Error(`timeout: ${method}`));
-        }
-      }, 120000);
-    });
-  }
-
-  on(handler) {
-    this.handlers.push(handler);
-  }
-}
-
-const connect = (url) =>
-  new Promise((resolve, reject) => {
-    const ws = new WebSocket(url);
-    ws.addEventListener("open", () => resolve(ws));
-    ws.addEventListener("error", reject);
-  });
-
-const results = [];
-const check = (name, pass, detail = "") => {
-  results.push({ name, pass, detail });
-  say(`${pass ? "PASS" : "FAIL"}  ${name}${detail ? ` — ${detail}` : ""}`);
-};
+const chrome = launchChrome(PORT);
+const { check, summary } = reporter();
+const say = (line) => console.log(line);
 
 try {
-  const cdp = new CDP(await connect(await browserWs()));
-
-  const sessions = new Set();
-  cdp.on((msg) => {
-    if (msg.method === "Target.attachedToTarget") {
-      sessions.add(msg.params.sessionId);
-    }
-  });
-
-  await cdp.send("Target.setAutoAttach", {
-    autoAttach: true,
-    waitForDebuggerOnStart: false,
-    flatten: true,
-  });
-
-  const { targetId } = await cdp.send("Target.createTarget", { url: "about:blank" });
-  const { sessionId } = await cdp.send("Target.attachToTarget", {
-    targetId,
-    flatten: true,
-  });
-  sessions.add(sessionId);
-
-  await cdp.send("Page.enable", {}, sessionId);
-  await cdp.send("Runtime.enable", {}, sessionId);
-  await cdp.send("Network.enable", {}, sessionId);
-
-  const evaluate = async (expression, session = sessionId) => {
-    const res = await cdp.send(
-      "Runtime.evaluate",
-      { expression, awaitPromise: true, returnByValue: true },
-      session,
-    );
-    if (res.exceptionDetails) {
-      return { error: res.exceptionDetails.exception?.description ?? "threw" };
-    }
-    return { value: res.result.value };
-  };
-
-  const evaluateWithGesture = async (expression) => {
-    const res = await cdp.send(
-      "Runtime.evaluate",
-      { expression, awaitPromise: true, returnByValue: true, userGesture: true },
-      sessionId,
-    );
-    if (res.exceptionDetails) {
-      return { error: res.exceptionDetails.exception?.description ?? "threw" };
-    }
-    return { value: res.result.value };
-  };
-
-  const goto = async (url) => {
-    const loaded = new Promise((resolve) => {
-      const handler = (msg) => {
-        if (msg.method === "Page.loadEventFired" && msg.sessionId === sessionId) {
-          cdp.handlers.splice(cdp.handlers.indexOf(handler), 1);
-          resolve();
-        }
-      };
-      cdp.on(handler);
-    });
-    await cdp.send("Page.navigate", { url }, sessionId);
-    await loaded;
-    // Give React a moment to hydrate and read IndexedDB.
-    await new Promise((r) => setTimeout(r, 2500));
-  };
-
-  const setOffline = async (offline) => {
-    for (const session of sessions) {
-      try {
-        await cdp.send("Network.enable", {}, session);
-        await cdp.send(
-          "Network.emulateNetworkConditions",
-          {
-            offline,
-            latency: 0,
-            downloadThroughput: offline ? 0 : -1,
-            uploadThroughput: offline ? 0 : -1,
-          },
-          session,
-        );
-      } catch {
-        // Some attached targets (e.g. the browser itself) have no Network
-        // domain; the page and worker sessions are the ones that matter.
-      }
-    }
-  };
+  const cdp = new CDP(await connect(await browserWebSocket(PORT)));
+  const page = await openPage(cdp);
+  const { evaluate, goto, setOffline } = page;
+  const evaluateWithGesture = (expression) =>
+    evaluate(expression, { userGesture: true });
 
   /* ------------------------------------------------------ online phase */
 
   say("\n--- ONLINE ---");
-  await goto(`${ORIGIN}/offline-sync`);
+  await goto(`${ORIGIN}/offline`);
 
   // The service worker registers after hydration; poll rather than assume.
   let registration = null;
@@ -209,7 +45,7 @@ try {
     );
     registration = res.value ?? res.error;
     if (registration === "active") break;
-    await new Promise((r) => setTimeout(r, 1000));
+    await wait(1000);
   }
   check(
     "Service worker registers and activates",
@@ -220,12 +56,12 @@ try {
   // Download content to the device by pressing the real button.
   const clicked = await evaluate(`(() => {
     const button = [...document.querySelectorAll("button")]
-      .find(b => b.textContent.trim().startsWith("Download for offline"));
+      .find(b => b.textContent.trim().startsWith("Sync now"));
     if (!button) return "button not found";
     button.click();
     return "clicked";
   })()`);
-  check("Download for offline is pressable", clicked.value === "clicked", String(clicked.value ?? clicked.error));
+  check("Sync now is pressable", clicked.value === "clicked", String(clicked.value ?? clicked.error));
 
   const countScript = `(async () => {
     const db = await new Promise((resolve, reject) => {
@@ -249,7 +85,7 @@ try {
     const res = await evaluate(countScript);
     counts = res.value ?? {};
     if ((counts.lessons ?? 0) > 0 || (counts.translations ?? 0) > 0) break;
-    await new Promise((r) => setTimeout(r, 1000));
+    await wait(1000);
   }
   check(
     "Content written to IndexedDB",
@@ -423,7 +259,7 @@ try {
   );
 
   // Other cached routes.
-  for (const route of ["/dashboard", "/offline-sync", "/curriculum"]) {
+  for (const route of ["/dashboard", "/offline", "/curriculum"]) {
     await goto(`${ORIGIN}${route}`);
     const res = await evaluate(`document.body.innerText.length`);
     check(`${route} opens offline`, Number(res.value ?? 0) > 200, `${res.value} chars`);
@@ -440,13 +276,11 @@ try {
   );
 
   await setOffline(false);
-  say("\n--- SUMMARY ---");
-  const failed = results.filter((r) => !r.pass);
-  say(`${results.length - failed.length}/${results.length} checks passed`);
-  if (failed.length) say(`Failed: ${failed.map((f) => f.name).join("; ")}`);
+  process.exitCode = summary() ? 0 : 1;
 } catch (error) {
   say(`ERROR: ${error.stack ?? error}`);
+  process.exitCode = 1;
 } finally {
   chrome.kill();
-  process.exit(0);
+  setTimeout(() => process.exit(process.exitCode ?? 0), 500);
 }
