@@ -16,7 +16,7 @@ import { openDB, type DBSchema, type IDBPDatabase } from "idb";
  * the device, so API keys, tokens and credentials stay on the server.
  */
 const DB_NAME = "shikshasetu-offline";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export type OfflineLesson = {
   id: string;
@@ -136,6 +136,54 @@ export type OfflineGlossaryTerm = {
   updatedAt: string;
 };
 
+/** The three operations the queue can carry, mirroring `SyncOperation`. */
+export type SyncOperation = "CREATE" | "UPDATE" | "DELETE";
+
+export type SyncItemStatus =
+  | "PENDING"
+  | "SYNCING"
+  | "SYNCED"
+  | "FAILED"
+  | "CONFLICT";
+
+/**
+ * One change made on this tablet, waiting to reach the server.
+ *
+ * This is the only store holding work that exists **nowhere else**. Everything
+ * else in this database is a copy of something the server already has and can
+ * be re-downloaded; a queued correction that is dropped is a teacher's typing
+ * gone for good. That is why `clearContent` leaves this store alone.
+ *
+ * `baseUpdatedAt` is the whole conflict story: it records the version of the
+ * row this edit was made against, so the server can tell "nobody has touched
+ * this since" from "someone else has changed it and applying yours would bury
+ * theirs".
+ */
+export type OutboxItem = {
+  id: string;
+  entityType: "TranslationCorrection";
+  /** The row this change applies to — a translation id, for a correction. */
+  entityId: string;
+  operation: SyncOperation;
+  status: SyncItemStatus;
+  payload: { correctedText: string; reason: string | null };
+  /** `updatedAt` of the row as this device knew it when the edit was made. */
+  baseUpdatedAt: string;
+  /** What this device believed the text was, shown side by side in a conflict. */
+  baseText: string;
+  /** When the teacher made the change, not when it was sent. */
+  createdAt: string;
+  syncedAt: string | null;
+  attempts: number;
+  lastError: string | null;
+  /** Filled in when the server refused to overwrite newer data. */
+  conflict: {
+    serverText: string;
+    serverUpdatedAt: string;
+    message: string;
+  } | null;
+};
+
 export type OfflinePreference = {
   key: string;
   value: unknown;
@@ -175,6 +223,11 @@ interface ShikshaSetuDB extends DBSchema {
     value: OfflineCurriculumOutcome;
     indexes: { "by-area": string };
   };
+  outbox: {
+    key: string;
+    value: OutboxItem;
+    indexes: { "by-status": string; "by-entity": string };
+  };
   preferences: { key: string; value: OfflinePreference };
 }
 
@@ -192,6 +245,7 @@ export type StoreName =
   | "audio"
   | "glossary"
   | "curriculum"
+  | "outbox"
   | "preferences";
 
 export const CONTENT_STORES = [
@@ -204,6 +258,12 @@ export const CONTENT_STORES = [
   "glossary",
   "curriculum",
 ] as const;
+
+/**
+ * Downloaded content only. `outbox` and `preferences` are deliberately absent:
+ * one holds changes that exist nowhere else yet, the other the teacher's own
+ * settings. Neither is something "clear downloaded content" should touch.
+ */
 
 let dbPromise: Promise<IDBPDatabase<ShikshaSetuDB>> | null = null;
 
@@ -227,6 +287,11 @@ export function getDB(): Promise<IDBPDatabase<ShikshaSetuDB>> | null {
             "by-area",
             "learningArea",
           );
+        }
+        if (!db.objectStoreNames.contains("outbox")) {
+          const outbox = db.createObjectStore("outbox", { keyPath: "id" });
+          outbox.createIndex("by-status", "status");
+          outbox.createIndex("by-entity", "entityId");
         }
         return;
       }
@@ -263,6 +328,9 @@ export function getDB(): Promise<IDBPDatabase<ShikshaSetuDB>> | null {
         "by-area",
         "learningArea",
       );
+      const outbox = db.createObjectStore("outbox", { keyPath: "id" });
+      outbox.createIndex("by-status", "status");
+      outbox.createIndex("by-entity", "entityId");
       db.createObjectStore("preferences", { keyPath: "key" });
     },
   });
@@ -324,6 +392,7 @@ export async function countAll(): Promise<Record<StoreName, number>> {
     audio: 0,
     glossary: 0,
     curriculum: 0,
+    outbox: 0,
     preferences: 0,
   } as Record<StoreName, number>;
 
@@ -349,6 +418,98 @@ export async function clearContent(): Promise<void> {
   const tx = db.transaction([...CONTENT_STORES], "readwrite");
   await Promise.all(CONTENT_STORES.map((store) => tx.objectStore(store).clear()));
   await tx.done;
+}
+
+/* --------------------------------------------------------------- outbox */
+
+/** Everything queued, newest change first. */
+export async function listOutbox(): Promise<OutboxItem[]> {
+  const rows = (await getAll("outbox")) as OutboxItem[];
+  return rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/** Items the next sync will actually send. */
+export function isSendable(item: OutboxItem): boolean {
+  return item.status === "PENDING" || item.status === "FAILED";
+}
+
+export async function countPendingChanges(): Promise<number> {
+  return (await listOutbox()).filter(isSendable).length;
+}
+
+/**
+ * Queues a change, replacing any unsent change to the same row.
+ *
+ * One pending edit per row rather than a stack of them: two corrections typed
+ * on the same tablet before it next reaches a network are the teacher revising
+ * their own work, and sending the superseded version first would put a text
+ * they had already rejected into the record. A change that has already reached
+ * the server is never replaced — it is history at that point.
+ */
+export async function enqueue(
+  item: Omit<OutboxItem, "id" | "status" | "attempts" | "lastError" | "syncedAt" | "conflict">,
+): Promise<OutboxItem> {
+  const db = await getDB();
+  const row: OutboxItem = {
+    ...item,
+    id: crypto.randomUUID(),
+    status: "PENDING",
+    attempts: 0,
+    lastError: null,
+    syncedAt: null,
+    conflict: null,
+  };
+
+  if (!db) return row;
+
+  const existing = (await getAll("outbox")) as OutboxItem[];
+  const superseded = existing.filter(
+    (candidate) =>
+      candidate.entityId === item.entityId &&
+      candidate.entityType === item.entityType &&
+      candidate.status !== "SYNCED",
+  );
+
+  const tx = db.transaction("outbox", "readwrite");
+  for (const stale of superseded) await tx.store.delete(stale.id);
+  await tx.store.put(row);
+  await tx.done;
+
+  return row;
+}
+
+export async function updateOutboxItem(
+  id: string,
+  changes: Partial<OutboxItem>,
+): Promise<void> {
+  const db = await getDB();
+  if (!db) return;
+
+  const tx = db.transaction("outbox", "readwrite");
+  const current = await tx.store.get(id);
+  if (current) await tx.store.put({ ...current, ...changes });
+  await tx.done;
+}
+
+export async function removeOutboxItem(id: string): Promise<void> {
+  const db = await getDB();
+  if (!db) return;
+  await db.delete("outbox", id);
+}
+
+/** Drops entries the server has confirmed, keeping the queue a to-do list. */
+export async function pruneSynced(): Promise<number> {
+  const db = await getDB();
+  if (!db) return 0;
+
+  const done = ((await getAll("outbox")) as OutboxItem[]).filter(
+    (item) => item.status === "SYNCED",
+  );
+
+  const tx = db.transaction("outbox", "readwrite");
+  for (const item of done) await tx.store.delete(item.id);
+  await tx.done;
+  return done.length;
 }
 
 /* --------------------------------------------------------- preferences */
