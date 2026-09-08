@@ -85,7 +85,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     label: "Offline & Sync",
-    href: "/offline-sync",
+    href: "/offline",
     icon: "RefreshCw",
     phase: 1,
     description: "What is stored on this tablet and what is waiting to upload.",

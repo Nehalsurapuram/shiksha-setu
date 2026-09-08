@@ -44,7 +44,7 @@ export function RequiresConnection({
         </p>
         <p className="mt-1">
           {stillAvailable} Everything you have already downloaded is listed on{" "}
-          <Link href="/offline-sync" className="underline underline-offset-2">
+          <Link href="/offline" className="underline underline-offset-2">
             Offline &amp; Sync
           </Link>
           .

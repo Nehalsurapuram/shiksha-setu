@@ -29,6 +29,7 @@ import {
   getPreference,
   type StoreName,
 } from "@/lib/offline/db";
+import { pushOutbox } from "@/lib/offline/outbox";
 import { cacheFlashcardAudio, syncNow } from "@/lib/offline/sync";
 import { useOnlineStatus } from "@/lib/offline/use-online-status";
 import { cn } from "@/lib/utils";
@@ -113,16 +114,31 @@ export function OfflineManager({
     };
   }, []);
 
+  /**
+   * Both directions, in the order that keeps work safe.
+   *
+   * Upload first: the download is a whole-store replace, and replacing a
+   * translation the teacher has just corrected before that correction has been
+   * sent would overwrite their typing with the server's older text.
+   */
   const download = async () => {
     setBusy("sync");
     setError(null);
     setMessage(null);
 
+    const pushed = await pushOutbox();
+
     const result = await syncNow();
     if (!result.ok) setError(result.error);
     else {
       const total = Object.values(result.counts).reduce((a, b) => a + b, 0);
-      setMessage(`Downloaded ${total} items to this device.`);
+      const uploaded =
+        pushed.synced > 0 ? `Uploaded ${pushed.synced} change(s). ` : "";
+      const clash =
+        pushed.conflicts > 0
+          ? ` ${pushed.conflicts} change(s) need a decision — see the queue above.`
+          : "";
+      setMessage(`${uploaded}Downloaded ${total} items to this device.${clash}`);
       // The teacher has just said they want this tablet to work offline, so
       // make sure the pages that read the content are stored too. Content in
       // IndexedDB with no cached page to open it is not offline access.
@@ -232,7 +248,8 @@ export function OfflineManager({
           <CardTitle>Available offline</CardTitle>
           <CardDescription>
             Counted from this device, not from the server. A tick means it is
-            actually stored here.
+            actually stored here. “Sync now” sends your changes first, then
+            downloads the latest content.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -278,12 +295,12 @@ export function OfflineManager({
               {busy === "sync" ? (
                 <>
                   <Loader2 className="animate-spin" aria-hidden />
-                  Downloading…
+                  Syncing…
                 </>
               ) : (
                 <>
                   <CloudDownload aria-hidden />
-                  Download for offline
+                  Sync now
                 </>
               )}
             </Button>

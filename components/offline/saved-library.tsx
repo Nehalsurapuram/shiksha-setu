@@ -10,6 +10,7 @@ import {
   Layers,
   Library,
   Loader2,
+  Pencil,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -25,6 +26,7 @@ import {
 } from "@/components/ui/card";
 import {
   getAll,
+  listOutbox,
   type OfflineAssessment,
   type OfflineAudio,
   type OfflineCurriculumOutcome,
@@ -32,7 +34,9 @@ import {
   type OfflineLesson,
   type OfflineTranslation,
   type OfflineWorksheet,
+  type OutboxItem,
 } from "@/lib/offline/db";
+import { queueCorrection } from "@/lib/offline/outbox";
 import { playCachedAudio } from "@/lib/offline/sync";
 import { useOnlineStatus } from "@/lib/offline/use-online-status";
 import { cn } from "@/lib/utils";
@@ -80,6 +84,8 @@ export function SavedLibrary({
   const [assessments, setAssessments] = useState<OfflineAssessment[]>([]);
   const [translations, setTranslations] = useState<OfflineTranslation[]>([]);
   const [audio, setAudio] = useState<OfflineAudio[]>([]);
+  const [queued, setQueued] = useState<OutboxItem[]>([]);
+  const [editing, setEditing] = useState<string | null>(null);
   const [curriculum, setCurriculum] = useState<OfflineCurriculumOutcome[]>([]);
 
   useEffect(() => {
@@ -96,6 +102,7 @@ export function SavedLibrary({
           getAll("audio"),
           getAll("curriculum"),
         ]);
+        const outbox = await listOutbox();
         if (cancelled) return;
         setLessons(l as OfflineLesson[]);
         setWorksheets(w as OfflineWorksheet[]);
@@ -104,6 +111,7 @@ export function SavedLibrary({
         setTranslations(t as OfflineTranslation[]);
         setAudio(clips as OfflineAudio[]);
         setCurriculum(outcomes as OfflineCurriculumOutcome[]);
+        setQueued(outbox);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -140,6 +148,42 @@ export function SavedLibrary({
       setAudioMessage("Could not play the cached audio.");
     }
   }, []);
+
+  /**
+   * Saves a correction with no server involved.
+   *
+   * The teacher's text lands in the local translation immediately and a queue
+   * entry carries it to the server whenever a network next appears. Nothing
+   * here waits on a request, because in the classroom this is written for
+   * there may not be one for hours.
+   */
+  const saveCorrection = async (
+    translationId: string,
+    correctedText: string,
+    reason: string,
+  ) => {
+    const result = await queueCorrection({
+      translationId,
+      correctedText: correctedText.trim(),
+      reason: reason.trim() || null,
+    });
+
+    if ("error" in result) {
+      setAudioMessage(result.error);
+      return;
+    }
+
+    setTranslations((rows) =>
+      rows.map((row) =>
+        row.id === translationId
+          ? { ...row, correctedText: correctedText.trim(), reviewStatus: "CORRECTED" }
+          : row,
+      ),
+    );
+    setQueued(await listOutbox());
+    setEditing(null);
+    setAudioMessage(null);
+  };
 
   if (loading) {
     return (
@@ -325,33 +369,65 @@ export function SavedLibrary({
           <CardHeader>
             <CardTitle>Saved translations</CardTitle>
             <CardDescription>
-              Translations already made and stored. New text cannot be
-              translated without a connection.
+              Translations already made and stored. You can correct these with no
+              connection — the correction is saved on the tablet and uploaded
+              when the internet returns. Translating <em>new</em> text still needs
+              a network.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="divide-y divide-border">
-              {translations.slice(0, 100).map((row) => (
-                <li key={row.id} className="py-3">
-                  <p className="text-sm">{row.sourceText}</p>
-                  <p
-                    className={cn(
-                      "mt-1 text-sm text-muted-foreground",
-                      targetIsOlChiki && "font-ol-chiki",
-                    )}
-                  >
-                    {row.correctedText ?? row.targetText}
-                  </p>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <span>
-                      {row.sourceLanguage} → {row.targetLanguage}
-                    </span>
-                    {row.correctedText ? (
-                      <Badge variant="success">Corrected</Badge>
+              {translations.slice(0, 100).map((row) => {
+                const pending = queued.find(
+                  (item) => item.entityId === row.id && item.status !== "SYNCED",
+                );
+
+                return (
+                  <li key={row.id} className="py-3">
+                    <p className="text-sm">{row.sourceText}</p>
+                    <p
+                      className={cn(
+                        "mt-1 text-sm text-muted-foreground",
+                        targetIsOlChiki && "font-ol-chiki",
+                      )}
+                    >
+                      {row.correctedText ?? row.targetText}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span>
+                        {row.sourceLanguage} → {row.targetLanguage}
+                      </span>
+                      {row.correctedText ? (
+                        <Badge variant="success">Corrected</Badge>
+                      ) : null}
+                      {pending ? (
+                        <Badge variant="warning">
+                          {pending.status === "CONFLICT"
+                            ? "Needs a decision"
+                            : "Waiting to upload"}
+                        </Badge>
+                      ) : null}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setEditing(editing === row.id ? null : row.id)}
+                        aria-expanded={editing === row.id}
+                      >
+                        <Pencil aria-hidden />
+                        {editing === row.id ? "Cancel" : "Correct"}
+                      </Button>
+                    </div>
+
+                    {editing === row.id ? (
+                      <CorrectionEditor
+                        initialText={row.correctedText ?? row.targetText}
+                        isOlChiki={targetIsOlChiki}
+                        onSave={(text, reason) => saveCorrection(row.id, text, reason)}
+                      />
                     ) : null}
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
             {translations.length > 100 ? (
               <p className="mt-3 text-xs text-muted-foreground">
@@ -455,6 +531,80 @@ export function SavedLibrary({
           </CardContent>
         </Card>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * Edit-and-save for a translation, with no network in the loop.
+ *
+ * The online translator posts a correction to a Server Action; that is
+ * unavailable here by definition, so this writes to IndexedDB and the queue
+ * instead. The wording matches the online form deliberately — a teacher should
+ * not have to know which of the two they are using.
+ */
+function CorrectionEditor({
+  initialText,
+  isOlChiki,
+  onSave,
+}: {
+  initialText: string;
+  isOlChiki: boolean;
+  onSave: (text: string, reason: string) => Promise<void>;
+}) {
+  const [text, setText] = useState(initialText);
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  return (
+    <div className="mt-3 space-y-3 rounded-md border border-border bg-muted/40 p-3">
+      <div>
+        <label className="text-sm font-medium" htmlFor={`fix-${initialText.length}`}>
+          Corrected translation
+        </label>
+        <textarea
+          id={`fix-${initialText.length}`}
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          rows={4}
+          className={cn(
+            "mt-1.5 w-full resize-y rounded-md border border-input bg-card p-3 text-base leading-relaxed",
+            isOlChiki && "font-ol-chiki",
+          )}
+        />
+      </div>
+
+      <div>
+        <label className="text-sm font-medium" htmlFor={`why-${initialText.length}`}>
+          What was wrong?{" "}
+          <span className="text-muted-foreground">(optional)</span>
+        </label>
+        <input
+          id={`why-${initialText.length}`}
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          placeholder="e.g. wrong word for 'root'"
+          className="mt-1.5 h-11 w-full rounded-md border border-input bg-card px-3 text-sm"
+        />
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        Saved on this tablet straight away, and sent to the server the next time
+        there is a connection. Your correction is kept alongside the original,
+        not over it.
+      </p>
+
+      <Button
+        size="sm"
+        disabled={saving || text.trim().length === 0}
+        onClick={async () => {
+          setSaving(true);
+          await onSave(text, reason);
+          setSaving(false);
+        }}
+      >
+        {saving ? "Saving…" : "Save correction"}
+      </Button>
     </div>
   );
 }

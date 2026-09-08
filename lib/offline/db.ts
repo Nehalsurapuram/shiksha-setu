@@ -176,6 +176,13 @@ export type OutboxItem = {
   syncedAt: string | null;
   attempts: number;
   lastError: string | null;
+  /**
+   * Set only by a teacher answering a conflict with "keep mine". Nothing else
+   * ever sets it: this is the single switch that lets a change land on top of
+   * a newer row, and it exists so that overwriting is always somebody's
+   * decision rather than a default.
+   */
+  force: boolean;
   /** Filled in when the server refused to overwrite newer data. */
   conflict: {
     serverText: string;
@@ -447,7 +454,10 @@ export async function countPendingChanges(): Promise<number> {
  * the server is never replaced — it is history at that point.
  */
 export async function enqueue(
-  item: Omit<OutboxItem, "id" | "status" | "attempts" | "lastError" | "syncedAt" | "conflict">,
+  item: Omit<
+    OutboxItem,
+    "id" | "status" | "attempts" | "lastError" | "syncedAt" | "conflict" | "force"
+  >,
 ): Promise<OutboxItem> {
   const db = await getDB();
   const row: OutboxItem = {
@@ -457,6 +467,7 @@ export async function enqueue(
     attempts: 0,
     lastError: null,
     syncedAt: null,
+    force: false,
     conflict: null,
   };
 

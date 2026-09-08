@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/layout/app-shell";
+import { SyncOnReconnect } from "@/components/offline/sync-on-reconnect";
 import type { SelectableLanguage } from "@/components/layout/language-selector";
 import { getDefaultLanguagePair, listLanguages } from "@/lib/database/queries";
 
@@ -45,6 +46,10 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       defaultSource={defaultSource}
       defaultTarget={defaultTarget}
     >
+      {/* Drains the offline queue as soon as a network appears, on every
+          screen — a teacher does not have to be looking at the Sync Center for
+          their corrections to reach the server. */}
+      <SyncOnReconnect />
       {children}
     </AppShell>
   );
