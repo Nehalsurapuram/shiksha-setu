@@ -26,11 +26,15 @@ import {
 const ORIGIN = "http://localhost:3000";
 const PORT = 9335;
 
+// No `shell: true`: with it, Windows concatenates the arguments unescaped and
+// a value with spaces arrives truncated at the first one — which quietly wrote
+// a different correction than this script thought it had.
 const probe = (...args) =>
-  execFileSync("npx", ["tsx", "scripts/sync-probe.ts", ...args], {
-    encoding: "utf8",
-    shell: process.platform === "win32",
-  }).trim();
+  execFileSync(
+    process.platform === "win32" ? "npx.cmd" : "npx",
+    ["tsx", "scripts/sync-probe.ts", ...args],
+    { encoding: "utf8" },
+  ).trim();
 
 const { check, summary } = reporter();
 const chrome = launchChrome(PORT);
@@ -166,15 +170,26 @@ try {
   await page.goto(`${ORIGIN}/library`);
 
   const typed = await page.evaluate(correctInLibrary(0, "OFFLINE CORRECTION ONE"));
-  check("A correction can be typed offline", typed.value === "saved", String(typed.value));
+  check(
+    "A correction can be typed offline",
+    typed.value === "saved",
+    String(typed.value ?? typed.error),
+  );
 
   const badge = await page.evaluate(`document.body.innerText.includes("Waiting to upload")`);
   check("The row shows it is waiting to upload", badge.value === true, String(badge.value));
 
-  await page.evaluate(correctInLibrary(1, "MY VERSION FOR THE CONFLICT"));
-  await page.evaluate(correctInLibrary(2, "MY VERSION I WILL KEEP"));
+  const typed2 = await page.evaluate(correctInLibrary(1, "MY VERSION FOR THE CONFLICT"));
+  const typed3 = await page.evaluate(correctInLibrary(2, "MY VERSION I WILL KEEP"));
+  check(
+    "Two more corrections typed offline",
+    typed2.value === "saved" && typed3.value === "saved",
+    `${typed2.value ?? typed2.error} / ${typed3.value ?? typed3.error}`,
+  );
 
-  let queue = JSON.parse((await page.evaluate(readOutbox)).value ?? "[]");
+  const rawQueue = await page.evaluate(readOutbox);
+  let queue = JSON.parse(rawQueue.value ?? "[]");
+  if (rawQueue.error) console.log(`  outbox read error: ${rawQueue.error}`);
   check(
     "Three changes are queued on the device",
     queue.length === 3 && queue.every((row) => row.status === "PENDING"),
