@@ -152,7 +152,20 @@ interface ShikshaSetuDB extends DBSchema {
   preferences: { key: string; value: OfflinePreference };
 }
 
-export type StoreName = keyof ShikshaSetuDB;
+/**
+ * Written out rather than derived with `keyof ShikshaSetuDB`: DBSchema carries
+ * an index signature, so `keyof` widens to `string` and every store name loses
+ * its type.
+ */
+export type StoreName =
+  | "lessons"
+  | "translations"
+  | "worksheets"
+  | "flashcards"
+  | "assessments"
+  | "audio"
+  | "glossary"
+  | "preferences";
 
 export const CONTENT_STORES = [
   "lessons",
