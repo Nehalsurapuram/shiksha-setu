@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { SheetWorkspace } from "@/components/generators/sheet-workspace";
+import { RequiresConnection } from "@/components/offline/requires-connection";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -64,6 +65,11 @@ export default async function AssessmentsPage() {
             <Badge variant="warning">Generation unavailable</Badge>
           )
         }
+      />
+
+      <RequiresConnection
+        feature="Generating an assessment"
+        stillAvailable="Assessments you have already saved open offline."
       />
 
       <Card className="mb-6 print:hidden">

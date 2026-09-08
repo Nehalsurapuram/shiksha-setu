@@ -30,6 +30,7 @@ const OFFLINE_URL = "/offline.html";
  */
 const OFFLINE_ROUTES = [
   "/dashboard",
+  "/library",
   "/offline-sync",
   "/lessons",
   "/worksheets",

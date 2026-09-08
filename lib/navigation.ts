@@ -14,6 +14,13 @@ export const NAV_ITEMS: NavItem[] = [
     description: "Classroom overview and setup status.",
   },
   {
+    label: "Saved content",
+    href: "/library",
+    icon: "HardDrive",
+    phase: 1,
+    description: "Everything downloaded to this tablet. Works with no internet.",
+  },
+  {
     label: "Translator",
     href: "/translator",
     icon: "Languages",

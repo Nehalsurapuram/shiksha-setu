@@ -1,9 +1,16 @@
 "use client";
 
 /**
- * Registers the app-shell service worker. Phase 1 caches the shell only, so the
- * app opens without a network; it does not yet cache lessons, audio, or any API
- * response. Real offline content sync lands with the Offline & Sync feature.
+ * Registers the service worker.
+ *
+ * It caches the application shell and the routes that read from IndexedDB, so
+ * a teacher can reach their downloaded content with no network. It caches no
+ * API response: translation, speech and generation are cloud calls, and a
+ * stale one served offline would look like a fresh answer.
+ *
+ * Development is deliberately excluded. A service worker serving cached pages
+ * over a hot-reloading dev server produces stale-code bugs that look like
+ * application bugs. Test offline behaviour against `next build && next start`.
  */
 export function registerServiceWorker(): void {
   if (typeof window === "undefined") return;

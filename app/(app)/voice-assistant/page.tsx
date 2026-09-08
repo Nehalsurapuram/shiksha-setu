@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { RequiresConnection } from "@/components/offline/requires-connection";
 import { PageHeader } from "@/components/shared/page-header";
 import { VoiceAssistant } from "@/components/voice/voice-assistant";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +54,11 @@ export default async function VoiceAssistantPage() {
             <Badge variant="success">Sarvam connected</Badge>
           )
         }
+      />
+
+      <RequiresConnection
+        feature="Speech recognition"
+        stillAvailable="Nothing on this device can transcribe or speak."
       />
 
       {isDemo ? (

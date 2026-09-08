@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { FlashcardWorkspace } from "@/components/generators/flashcard-workspace";
+import { RequiresConnection } from "@/components/offline/requires-connection";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -54,6 +55,11 @@ export default async function FlashcardsPage() {
             <Badge variant="warning">Generation unavailable</Badge>
           )
         }
+      />
+
+      <RequiresConnection
+        feature="Generating flashcards"
+        stillAvailable="Saved decks and any cached audio still work."
       />
 
       <FlashcardWorkspace

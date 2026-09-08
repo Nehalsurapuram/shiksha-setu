@@ -4,6 +4,7 @@ import {
   BookOpen,
   ClipboardCheck,
   FileText,
+  HardDrive,
   Layers,
   Languages,
   LayoutDashboard,
@@ -21,6 +22,7 @@ import {
  * icon set, which matters on a tablet over a slow rural connection.
  */
 const ICONS: Record<string, LucideIcon> = {
+  HardDrive,
   LayoutDashboard,
   Languages,
   MessagesSquare,

@@ -86,8 +86,32 @@ export function OfflineManager({
   }, []);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    let cancelled = false;
+
+    // Reading IndexedDB is exactly the "subscribe to an external system" case
+    // effects are for: the data cannot exist during render, and it is async so
+    // it cannot be a useSyncExternalStore snapshot. State is set from the
+    // promise callback, never synchronously in the effect body.
+    void (async () => {
+      try {
+        const [next, size, synced] = await Promise.all([
+          countAll(),
+          audioBytes(),
+          getPreference<string>(LAST_SYNC_KEY),
+        ]);
+        if (cancelled) return;
+        setCounts(next);
+        setBytes(size);
+        setLastSynced(synced);
+      } catch {
+        if (!cancelled) setStorageBlocked(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const download = async () => {
     setBusy("sync");

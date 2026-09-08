@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { RequiresConnection } from "@/components/offline/requires-connection";
 import { PageHeader } from "@/components/shared/page-header";
 import type { HistoryEntry } from "@/components/translator/translation-history";
 import { TranslatorWorkspace } from "@/components/translator/translator-workspace";
@@ -83,6 +84,11 @@ export default async function TranslatorPage() {
             <Badge variant="success">Sarvam connected</Badge>
           )
         }
+      />
+
+      <RequiresConnection
+        feature="Translating new text"
+        stillAvailable="Translations you have already made stay readable."
       />
 
       {isDemo ? (
