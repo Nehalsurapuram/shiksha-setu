@@ -6,9 +6,10 @@ planned.
 
 Built to run on low-cost Android tablets with offline-first classroom usage.
 
-> **Status: translation, voice and the two-way classroom are live.** Hindi →
-> Santhali translation runs against Sarvam AI with history and teacher
-> corrections ([docs/TRANSLATION.md](docs/TRANSLATION.md)), the Voice Assistant
+> **Status: translation, voice, the two-way classroom, lesson and content
+> generation, and offline access are live.** Hindi → Santhali translation runs
+> against Sarvam AI with history and teacher corrections
+> ([docs/TRANSLATION.md](docs/TRANSLATION.md)), the Voice Assistant
 > transcribes Hindi speech and translates it ([docs/VOICE.md](docs/VOICE.md)),
 > and the Interactive Classroom carries a conversation both ways
 > ([docs/CLASSROOM.md](docs/CLASSROOM.md)).
@@ -25,7 +26,23 @@ Built to run on low-cost Android tablets with offline-first classroom usage.
 > `OPENAI_API_KEY` with credit; without one, uploading and saving still work
 > and no lesson content is invented.
 >
-> Worksheets, flashcards, assessments and offline sync are **not implemented**; see
+> Worksheets, flashcards and assessments generate bilingual, printable material
+> ([docs/GENERATORS.md](docs/GENERATORS.md)). The model does not reliably follow
+> the request — count, question type and language — so the code enforces it
+> after generation rather than trusting the output.
+>
+> Every lesson, worksheet and assessment carries an FLN / NIPUN Bharat alignment
+> card ([docs/FLN-ALIGNMENT.md](docs/FLN-ALIGNMENT.md)). The outcome catalogue
+> ships empty, so today every alignment is labelled **Suggested** and carries no
+> outcome codes — a fabricated "FLN 2.3" on a printed worksheet is
+> indistinguishable from a real one.
+>
+> Offline sync downloads saved content to IndexedDB and `/library` reads only
+> from the device ([docs/OFFLINE.md](docs/OFFLINE.md)). No cloud AI feature works
+> offline — translation, speech and generation are all HTTP calls — and every
+> screen that needs the network says so the moment the connection drops.
+>
+> Audio Library and Analytics are **not built**; see
 > [docs/PHASE-1.md](docs/PHASE-1.md) and
 > [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md). Every unbuilt screen says so
 > plainly rather than showing sample output.
