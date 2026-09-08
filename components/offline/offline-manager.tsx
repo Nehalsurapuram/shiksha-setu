@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
@@ -42,6 +43,7 @@ const AVAILABLE_OFFLINE: Array<{ store: StoreName; label: string }> = [
   { store: "assessments", label: "Assessments" },
   { store: "audio", label: "Cached audio" },
   { store: "glossary", label: "Glossary" },
+  { store: "curriculum", label: "Curriculum (verified outcomes)" },
 ];
 
 /**
@@ -52,10 +54,8 @@ const AVAILABLE_OFFLINE: Array<{ store: StoreName; label: string }> = [
  */
 export function OfflineManager({
   sourceLanguage,
-  curriculumVerifiedCount,
 }: {
   sourceLanguage: { code: string; name: string };
-  curriculumVerifiedCount: number;
 }) {
   const { isOnline, hasChecked } = useOnlineStatus();
 
@@ -255,30 +255,19 @@ export function OfflineManager({
                 </li>
               );
             })}
-            <li className="flex items-center gap-3 py-2.5 text-sm">
-              {curriculumVerifiedCount > 0 ? (
-                <Check className="size-4 shrink-0 text-success" aria-hidden />
-              ) : (
-                <X className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-              )}
-              <span
-                className={cn(
-                  "flex-1",
-                  curriculumVerifiedCount === 0 && "text-muted-foreground",
-                )}
-              >
-                Curriculum{" "}
-                {curriculumVerifiedCount === 0 ? (
-                  <span className="text-xs">
-                    — no verified outcomes are loaded on the server yet
-                  </span>
-                ) : null}
-              </span>
-              <span className="tabular-nums text-muted-foreground">
-                {curriculumVerifiedCount}
-              </span>
-            </li>
           </ul>
+
+          {counts && counts.curriculum === 0 ? (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Curriculum is zero because this installation has no verified
+              learning outcomes loaded on the server — only rows with a real
+              citation are ever downloaded. See{" "}
+              <Link href="/curriculum" className="underline underline-offset-2">
+                Curriculum
+              </Link>
+              .
+            </p>
+          ) : null}
 
           <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-4">
             <Button onClick={download} disabled={busy !== null || offline}>

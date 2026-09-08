@@ -12,16 +12,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getDefaultLanguagePair, getWorkspaceSnapshot } from "@/lib/database/queries";
-import { getCatalogueStatus } from "@/lib/fln/catalogue";
 
 export const metadata: Metadata = { title: "Offline & Sync" };
 export const dynamic = "force-dynamic";
 
 export default async function OfflineSyncPage() {
-  const [{ counts }, pair, catalogue] = await Promise.all([
+  const [{ counts }, pair] = await Promise.all([
     getWorkspaceSnapshot(),
     getDefaultLanguagePair(),
-    getCatalogueStatus(),
   ]);
 
   return (
@@ -36,7 +34,6 @@ export default async function OfflineSyncPage() {
           code: pair?.source.code ?? "hi-IN",
           name: pair?.source.name ?? "Hindi",
         }}
-        curriculumVerifiedCount={catalogue.verifiedCount}
       />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
