@@ -14,6 +14,7 @@ const LIMITS = {
   flashcards: 1000,
   assessments: 200,
   glossary: 2000,
+  curriculum: 1000,
 } as const;
 
 /**
@@ -26,6 +27,9 @@ const LIMITS = {
  *    in IndexedDB, which anyone holding the tablet can read.
  *  - Unreviewed demo translations, which are placeholders rather than
  *    translations and must not be cached as if they were usable.
+ *  - Learning outcomes with no `verifiedSource`. Offline there is no server to
+ *    re-check a row against, so an unsourced outcome sitting beside verified
+ *    ones is exactly the thing that starts looking official.
  *
  * This is content only. It does not make translation, speech or generation
  * work offline; those are cloud calls and the UI says so.
@@ -41,8 +45,15 @@ export async function GET() {
   }
 
   try {
-    const [lessons, translations, worksheets, flashcards, assessments, glossary] =
-      await Promise.all([
+    const [
+      lessons,
+      translations,
+      worksheets,
+      flashcards,
+      assessments,
+      glossary,
+      curriculum,
+    ] = await Promise.all([
         prisma.lesson.findMany({
           where: { authorId: teacher.id },
           orderBy: { updatedAt: "desc" },
@@ -149,6 +160,24 @@ export async function GET() {
             updatedAt: true,
           },
         }),
+        // Verified rows only — see the header. On an installation with an
+        // empty catalogue this is correctly zero rows, and the device says so.
+        prisma.learningOutcome.findMany({
+          where: { verifiedSource: { not: null } },
+          orderBy: [{ learningArea: "asc" }, { competency: "asc" }],
+          take: LIMITS.curriculum,
+          select: {
+            id: true,
+            learningArea: true,
+            competency: true,
+            outcome: true,
+            classLevel: true,
+            subject: true,
+            verifiedSource: true,
+            code: true,
+            updatedAt: true,
+          },
+        }),
       ]);
 
     return Response.json({
@@ -194,6 +223,13 @@ export async function GET() {
       })),
       glossary: glossary.map((row) => ({
         ...row,
+        updatedAt: row.updatedAt.toISOString(),
+      })),
+      curriculum: curriculum.map((row) => ({
+        ...row,
+        // Narrowed for the client: the query already excluded null sources,
+        // but Prisma's type cannot know that.
+        verifiedSource: row.verifiedSource ?? "",
         updatedAt: row.updatedAt.toISOString(),
       })),
     });

@@ -27,6 +27,7 @@ type BundleResponse =
       flashcards: unknown[];
       assessments: unknown[];
       glossary: unknown[];
+      curriculum: unknown[];
     }
   | { success: false; error: { code: string; message: string } };
 
@@ -84,6 +85,12 @@ export async function syncNow(): Promise<SyncResult> {
       payload.assessments as never[],
     );
     counts.glossary = await replaceAll("glossary", payload.glossary as never[]);
+    // Verified outcomes only; the route filters them. Older servers predate
+    // this field, so an absent list means "none", not a failed sync.
+    counts.curriculum = await replaceAll(
+      "curriculum",
+      (payload.curriculum ?? []) as never[],
+    );
 
     const syncedAt = payload.generatedAt;
     await setPreference(LAST_SYNC_KEY, syncedAt);
