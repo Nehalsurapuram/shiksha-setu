@@ -64,12 +64,15 @@ export class CDP {
         if (msg.error) reject(new Error(JSON.stringify(msg.error)));
         else resolve(msg.result);
       } else {
-        for (const handler of this.handlers) handler(msg);
+        // Over a copy: a handler that removes itself (the navigation waiter
+        // does) would otherwise shift the array mid-iteration and silently
+        // skip the handler after it.
+        for (const handler of [...this.handlers]) handler(msg);
       }
     });
   }
 
-  send(method, params = {}, sessionId) {
+  send(method, params = {}, sessionId, timeoutMs = 30000) {
     const id = ++this.id;
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
@@ -79,8 +82,15 @@ export class CDP {
           this.pending.delete(id);
           reject(new Error(`timeout: ${method}`));
         }
-      }, 120000);
+      }, timeoutMs);
     });
+  }
+
+  off(handler) {
+    const index = this.handlers.indexOf(handler);
+    // Guarded: indexOf(-1) with splice would remove the *last* handler, which
+    // is somebody else's.
+    if (index >= 0) this.handlers.splice(index, 1);
   }
 
   on(handler) {
@@ -127,30 +137,44 @@ export async function openPage(cdp) {
   await cdp.send("Runtime.enable", {}, sessionId);
   await cdp.send("Network.enable", {}, sessionId);
 
-  const evaluate = async (expression, { userGesture = false } = {}) => {
-    const res = await cdp.send(
-      "Runtime.evaluate",
-      { expression, awaitPromise: true, returnByValue: true, userGesture },
-      sessionId,
-    );
+  const evaluate = async (expression, { userGesture = false, timeoutMs = 30000 } = {}) => {
+    let res;
+    try {
+      res = await cdp.send(
+        "Runtime.evaluate",
+        { expression, awaitPromise: true, returnByValue: true, userGesture },
+        sessionId,
+        timeoutMs,
+      );
+    } catch (error) {
+      // A blocked renderer or a destroyed context is a finding, not a reason
+      // to abandon the whole run.
+      return { error: String(error.message ?? error) };
+    }
     if (res.exceptionDetails) {
       return { error: res.exceptionDetails.exception?.description ?? "threw" };
     }
     return { value: res.result.value };
   };
 
+  /**
+   * Navigates and waits for the document to be usable.
+   *
+   * Polls `readyState` rather than waiting on `Page.loadEventFired` alone: the
+   * event is a single shot, and if it is missed — a race with the navigation
+   * command, a target that reloaded itself — the wait never ends and the whole
+   * run dies at the first page.
+   */
   const goto = async (url, settle = 2500) => {
-    const loaded = new Promise((resolve) => {
-      const handler = (msg) => {
-        if (msg.method === "Page.loadEventFired" && msg.sessionId === sessionId) {
-          cdp.handlers.splice(cdp.handlers.indexOf(handler), 1);
-          resolve();
-        }
-      };
-      cdp.on(handler);
-    });
     await cdp.send("Page.navigate", { url }, sessionId);
-    await loaded;
+
+    for (let attempt = 0; attempt < 60; attempt++) {
+      const state = await evaluate(`document.readyState`, { timeoutMs: 5000 });
+      if (state.value === "complete" || state.value === "interactive") break;
+      await wait(500);
+    }
+
+    // Hydration and the IndexedDB reads that follow it.
     await wait(settle);
   };
 
