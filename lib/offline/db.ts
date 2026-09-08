@@ -16,7 +16,7 @@ import { openDB, type DBSchema, type IDBPDatabase } from "idb";
  * the device, so API keys, tokens and credentials stay on the server.
  */
 const DB_NAME = "shikshasetu-offline";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export type OfflineLesson = {
   id: string;
@@ -106,6 +106,27 @@ export type OfflineAudio = {
   cachedAt: string;
 };
 
+/**
+ * A learning outcome stored for offline reading.
+ *
+ * Only rows carrying a `verifiedSource` are ever written here. An unverified
+ * row is working data for whoever is building the mapping; putting one on a
+ * tablet, where it sits next to verified rows with no server to re-check it
+ * against, is how an unsourced outcome starts looking official.
+ */
+export type OfflineCurriculumOutcome = {
+  id: string;
+  learningArea: string;
+  competency: string;
+  outcome: string;
+  classLevel: number | null;
+  subject: string | null;
+  /** Never null in this store — see above. */
+  verifiedSource: string;
+  code: string | null;
+  updatedAt: string;
+};
+
 export type OfflineGlossaryTerm = {
   id: string;
   sourceTerm: string;
@@ -149,6 +170,11 @@ interface ShikshaSetuDB extends DBSchema {
     value: OfflineGlossaryTerm;
     indexes: { "by-source": string };
   };
+  curriculum: {
+    key: string;
+    value: OfflineCurriculumOutcome;
+    indexes: { "by-area": string };
+  };
   preferences: { key: string; value: OfflinePreference };
 }
 
@@ -165,6 +191,7 @@ export type StoreName =
   | "assessments"
   | "audio"
   | "glossary"
+  | "curriculum"
   | "preferences";
 
 export const CONTENT_STORES = [
@@ -175,6 +202,7 @@ export const CONTENT_STORES = [
   "assessments",
   "audio",
   "glossary",
+  "curriculum",
 ] as const;
 
 let dbPromise: Promise<IDBPDatabase<ShikshaSetuDB>> | null = null;
@@ -190,7 +218,19 @@ export function getDB(): Promise<IDBPDatabase<ShikshaSetuDB>> | null {
   if (typeof indexedDB === "undefined") return null;
 
   dbPromise ??= openDB<ShikshaSetuDB>(DB_NAME, DB_VERSION, {
-    upgrade(db) {
+    upgrade(db, oldVersion) {
+      // Guarded per store rather than per version: a tablet may arrive at any
+      // version, and creating a store that already exists throws.
+      if (oldVersion >= 1) {
+        if (!db.objectStoreNames.contains("curriculum")) {
+          db.createObjectStore("curriculum", { keyPath: "id" }).createIndex(
+            "by-area",
+            "learningArea",
+          );
+        }
+        return;
+      }
+
       db.createObjectStore("lessons", { keyPath: "id" }).createIndex(
         "by-updated",
         "updatedAt",
@@ -218,6 +258,10 @@ export function getDB(): Promise<IDBPDatabase<ShikshaSetuDB>> | null {
       db.createObjectStore("glossary", { keyPath: "id" }).createIndex(
         "by-source",
         "sourceTerm",
+      );
+      db.createObjectStore("curriculum", { keyPath: "id" }).createIndex(
+        "by-area",
+        "learningArea",
       );
       db.createObjectStore("preferences", { keyPath: "key" });
     },
@@ -279,6 +323,7 @@ export async function countAll(): Promise<Record<StoreName, number>> {
     assessments: 0,
     audio: 0,
     glossary: 0,
+    curriculum: 0,
     preferences: 0,
   } as Record<StoreName, number>;
 
