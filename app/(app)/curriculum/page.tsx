@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { StoredCurriculum } from "@/components/offline/stored-curriculum";
 import { NotBuiltYet } from "@/components/shared/not-built-yet";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -103,6 +104,8 @@ export default async function CurriculumPage() {
           ) : null}
         </CardContent>
       </Card>
+
+      <StoredCurriculum />
 
       <NotBuiltYet
         feature="Curriculum import"

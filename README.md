@@ -76,6 +76,7 @@ Open <http://localhost:3000>. Health check: `GET /api/health`.
 | `npm run build` / `npm start` | Production build and serve (service worker is active here) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
+| `npm run offline:check` | Drives a real Chrome with the network cut and verifies saved content still opens (needs `npm run build && npm start` first) |
 | `npm run db:migrate` | Create/apply a migration in development |
 | `npm run db:deploy` | Apply migrations in production |
 | `npm run db:seed` | Load languages, demo school and teacher |

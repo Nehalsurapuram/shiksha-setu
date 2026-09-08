@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  AudioLines,
   BookOpen,
   ClipboardCheck,
   FileText,
   Languages,
   Layers,
+  Library,
   Loader2,
   Volume2,
   VolumeX,
@@ -24,6 +26,8 @@ import {
 import {
   getAll,
   type OfflineAssessment,
+  type OfflineAudio,
+  type OfflineCurriculumOutcome,
   type OfflineFlashcard,
   type OfflineLesson,
   type OfflineTranslation,
@@ -33,7 +37,14 @@ import { playCachedAudio } from "@/lib/offline/sync";
 import { useOnlineStatus } from "@/lib/offline/use-online-status";
 import { cn } from "@/lib/utils";
 
-type Tab = "lessons" | "worksheets" | "flashcards" | "assessments" | "translations";
+type Tab =
+  | "lessons"
+  | "worksheets"
+  | "flashcards"
+  | "assessments"
+  | "translations"
+  | "audio"
+  | "curriculum";
 
 const TABS: Array<{ key: Tab; label: string; icon: typeof BookOpen }> = [
   { key: "lessons", label: "Lessons", icon: BookOpen },
@@ -41,6 +52,8 @@ const TABS: Array<{ key: Tab; label: string; icon: typeof BookOpen }> = [
   { key: "flashcards", label: "Flashcards", icon: Layers },
   { key: "assessments", label: "Assessments", icon: ClipboardCheck },
   { key: "translations", label: "Translations", icon: Languages },
+  { key: "audio", label: "Audio", icon: AudioLines },
+  { key: "curriculum", label: "Curriculum", icon: Library },
 ];
 
 /**
@@ -66,18 +79,22 @@ export function SavedLibrary({
   const [flashcards, setFlashcards] = useState<OfflineFlashcard[]>([]);
   const [assessments, setAssessments] = useState<OfflineAssessment[]>([]);
   const [translations, setTranslations] = useState<OfflineTranslation[]>([]);
+  const [audio, setAudio] = useState<OfflineAudio[]>([]);
+  const [curriculum, setCurriculum] = useState<OfflineCurriculumOutcome[]>([]);
 
   useEffect(() => {
     let cancelled = false;
 
     void (async () => {
       try {
-        const [l, w, f, a, t] = await Promise.all([
+        const [l, w, f, a, t, clips, outcomes] = await Promise.all([
           getAll("lessons"),
           getAll("worksheets"),
           getAll("flashcards"),
           getAll("assessments"),
           getAll("translations"),
+          getAll("audio"),
+          getAll("curriculum"),
         ]);
         if (cancelled) return;
         setLessons(l as OfflineLesson[]);
@@ -85,6 +102,8 @@ export function SavedLibrary({
         setFlashcards(f as OfflineFlashcard[]);
         setAssessments(a as OfflineAssessment[]);
         setTranslations(t as OfflineTranslation[]);
+        setAudio(clips as OfflineAudio[]);
+        setCurriculum(outcomes as OfflineCurriculumOutcome[]);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -101,15 +120,17 @@ export function SavedLibrary({
     flashcards: flashcards.length,
     assessments: assessments.length,
     translations: translations.length,
+    audio: audio.length,
+    curriculum: curriculum.length,
   };
 
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
   const offline = hasChecked && !isOnline;
 
-  const play = useCallback(async (cardId: string) => {
+  const play = useCallback(async (ownerKey: string) => {
     setAudioMessage(null);
     try {
-      const played = await playCachedAudio(`flashcard:${cardId}`);
+      const played = await playCachedAudio(ownerKey);
       if (!played) {
         setAudioMessage(
           "No audio is cached for this card. Cache it from Offline & Sync while online.",
@@ -287,7 +308,7 @@ export function SavedLibrary({
                     size="sm"
                     variant="outline"
                     className="mt-3"
-                    onClick={() => play(card.id)}
+                    onClick={() => play(`flashcard:${card.id}`)}
                   >
                     <Volume2 aria-hidden />
                     Listen
@@ -340,8 +361,108 @@ export function SavedLibrary({
           </CardContent>
         </Card>
       ) : null}
+
+      {tab === "audio" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Cached audio</CardTitle>
+            <CardDescription>
+              Clips stored on this tablet as audio files, so they play with no
+              network. Speech is only ever generated while online.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {audio.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No audio is cached on this device. Cache it from Offline &amp;
+                Sync while connected.
+              </p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {audio.map((clip) => (
+                  <li
+                    key={clip.id}
+                    className="flex flex-wrap items-center gap-3 py-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm">
+                        {clip.transcript ?? clip.ownerKey}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {clip.languageCode} · {formatBytes(clip.sizeBytes)} ·
+                        cached{" "}
+                        {new Date(clip.cachedAt).toLocaleDateString("en-IN")}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => play(clip.ownerKey)}
+                    >
+                      <Volume2 aria-hidden />
+                      Play
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {tab === "curriculum" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Curriculum on this device</CardTitle>
+            <CardDescription>
+              Verified learning outcomes stored here. Only outcomes carrying a
+              real citation are downloaded — offline there is no server to check
+              one against.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {curriculum.length === 0 ? (
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>
+                  No verified curriculum data is stored on this device, because
+                  none is loaded on the server.
+                </p>
+                <p>
+                  Every alignment shown on a lesson, worksheet or assessment is
+                  therefore labelled <strong>Suggested</strong> and carries no
+                  outcome code — online and offline alike.
+                </p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-border">
+                {curriculum.map((row) => (
+                  <li key={row.id} className="py-3">
+                    <p className="text-sm font-medium">{row.competency}</p>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      {row.outcome}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span>{row.learningArea}</span>
+                      {row.classLevel ? <span>Class {row.classLevel}</span> : null}
+                      {row.subject ? <span>{row.subject}</span> : null}
+                      {row.code ? <Badge variant="outline">{row.code}</Badge> : null}
+                      <Badge variant="success">{row.verifiedSource}</Badge>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function List<T extends { id: string }>({

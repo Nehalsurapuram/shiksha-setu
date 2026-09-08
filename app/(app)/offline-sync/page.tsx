@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { InstallApp } from "@/components/offline/install-app";
 import { OfflineManager } from "@/components/offline/offline-manager";
 import { DevicePanel } from "@/components/shared/device-panel";
 import { PageHeader } from "@/components/shared/page-header";
@@ -37,6 +38,8 @@ export default async function OfflineSyncPage() {
       />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <InstallApp />
+
         <Card>
           <CardHeader>
             <CardTitle>This device</CardTitle>

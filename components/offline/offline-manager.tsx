@@ -123,6 +123,10 @@ export function OfflineManager({
     else {
       const total = Object.values(result.counts).reduce((a, b) => a + b, 0);
       setMessage(`Downloaded ${total} items to this device.`);
+      // The teacher has just said they want this tablet to work offline, so
+      // make sure the pages that read the content are stored too. Content in
+      // IndexedDB with no cached page to open it is not offline access.
+      navigator.serviceWorker?.controller?.postMessage("warm-caches");
     }
 
     await refresh();
