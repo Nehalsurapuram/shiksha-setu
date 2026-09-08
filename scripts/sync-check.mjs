@@ -26,13 +26,14 @@ import {
 const ORIGIN = "http://localhost:3000";
 const PORT = 9335;
 
-// No `shell: true`: with it, Windows concatenates the arguments unescaped and
-// a value with spaces arrives truncated at the first one — which quietly wrote
-// a different correction than this script thought it had.
+// Node directly on tsx's entry point, with no shell. `shell: true` concatenates
+// arguments unescaped on Windows, so a value containing spaces arrives cut off
+// at the first one — this quietly wrote a shorter correction than the script
+// believed it had, and the mismatch showed up as a failing assertion elsewhere.
 const probe = (...args) =>
   execFileSync(
-    process.platform === "win32" ? "npx.cmd" : "npx",
-    ["tsx", "scripts/sync-probe.ts", ...args],
+    process.execPath,
+    ["node_modules/tsx/dist/cli.mjs", "scripts/sync-probe.ts", ...args],
     { encoding: "utf8" },
   ).trim();
 
