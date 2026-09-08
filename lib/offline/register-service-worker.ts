@@ -17,9 +17,19 @@ export function registerServiceWorker(): void {
   if (!("serviceWorker" in navigator)) return;
   if (process.env.NODE_ENV !== "production") return;
 
-  window.addEventListener("load", () => {
+  const register = () => {
     navigator.serviceWorker.register("/sw.js").catch((error) => {
       console.warn("Service worker registration failed", error);
     });
-  });
+  };
+
+  // `load` has usually already fired by the time React hydrates and calls this,
+  // and a listener added after an event has fired never runs — so waiting for
+  // it unconditionally meant the worker was never registered at all, and
+  // nothing was ever cached for offline use.
+  if (document.readyState === "complete") {
+    register();
+  } else {
+    window.addEventListener("load", register, { once: true });
+  }
 }
