@@ -6,8 +6,8 @@ import { toDeck } from "@/lib/ai/generated-content";
 import { translateDeck } from "@/lib/ai/translate-sheet";
 import { TranslationService } from "@/lib/ai/TranslationService";
 import { fail } from "@/lib/api/speech-responses";
+import { isDenied, requireApiUser } from "@/lib/auth/guards";
 import {
-  getCurrentTeacher,
   getDefaultLanguagePair,
 } from "@/lib/database/queries";
 
@@ -56,7 +56,9 @@ export async function POST(request: Request) {
 
     if (parsed.data.translate) {
       const translateStart = Date.now();
-      const teacher = await getCurrentTeacher();
+      const authorized = await requireApiUser();
+  if (isDenied(authorized)) return authorized.response;
+  const teacher = authorized.user;
       const outcome = await translateDeck(deck, {
         service: new TranslationService(),
         sourceCode: pair.source.code,

@@ -10,8 +10,8 @@ import {
   tryBuildAlignment,
 } from "@/lib/fln/generate-alignment";
 import { fail } from "@/lib/api/speech-responses";
+import { isDenied, requireApiUser } from "@/lib/auth/guards";
 import {
-  getCurrentTeacher,
   getDefaultLanguagePair,
 } from "@/lib/database/queries";
 
@@ -95,7 +95,9 @@ export async function POST(request: Request) {
 
     if (parsed.data.translate) {
       const translateStart = Date.now();
-      const teacher = await getCurrentTeacher();
+      const authorized = await requireApiUser();
+  if (isDenied(authorized)) return authorized.response;
+  const teacher = authorized.user;
       const translation = new TranslationService();
 
       if (translation.isDemo) {

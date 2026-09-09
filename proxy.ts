@@ -23,6 +23,10 @@ const PUBLIC_PATHS = [
   "/offline.html",
   "/manifest.webmanifest",
   "/sw.js",
+  // A liveness probe has to answer before anyone signs in, and it reports only
+  // whether the process and its database are up — no user data passes through
+  // it. Every other API route is gated.
+  "/api/health",
 ];
 
 const PUBLIC_PREFIXES = ["/api/auth/", "/_next/", "/icons/", "/favicon"];

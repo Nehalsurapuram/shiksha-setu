@@ -1,6 +1,6 @@
 import { fail } from "@/lib/api/speech-responses";
 import { prisma } from "@/lib/database/prisma";
-import { getCurrentTeacher } from "@/lib/database/queries";
+import { isDenied, requireApiUser } from "@/lib/auth/guards";
 
 export const dynamic = "force-dynamic";
 /** A full bundle is a lot of rows to assemble. */
@@ -35,7 +35,9 @@ const LIMITS = {
  * work offline; those are cloud calls and the UI says so.
  */
 export async function GET() {
-  const teacher = await getCurrentTeacher();
+  const authorized = await requireApiUser();
+  if (isDenied(authorized)) return authorized.response;
+  const teacher = authorized.user;
   if (!teacher) {
     return fail(
       "PROVIDER_ERROR",

@@ -5,7 +5,7 @@ import {
   MAX_INPUT_CHARS,
   TranslationError,
 } from "@/lib/ai/translation-provider";
-import { getCurrentTeacher } from "@/lib/database/queries";
+import { isDenied, requireApiUser } from "@/lib/auth/guards";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +42,9 @@ export async function POST(request: Request) {
   const { sourceLanguage, targetLanguage, text } = parsed.data;
 
   try {
-    const teacher = await getCurrentTeacher();
+    const authorized = await requireApiUser();
+  if (isDenied(authorized)) return authorized.response;
+  const teacher = authorized.user;
     const service = new TranslationService();
 
     const outcome = await service.translate({

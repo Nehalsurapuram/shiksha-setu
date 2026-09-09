@@ -3,7 +3,7 @@ import { z } from "zod";
 import { fail } from "@/lib/api/speech-responses";
 import { MAX_INPUT_CHARS } from "@/lib/ai/translation-provider";
 import { prisma } from "@/lib/database/prisma";
-import { getCurrentTeacher } from "@/lib/database/queries";
+import { isDenied, requireApiUser } from "@/lib/auth/guards";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +55,9 @@ type ItemResult = {
  * should not lose a whole day's work to a single clash.
  */
 export async function POST(request: Request) {
-  const teacher = await getCurrentTeacher();
+  const authorized = await requireApiUser();
+  if (isDenied(authorized)) return authorized.response;
+  const teacher = authorized.user;
   if (!teacher) {
     return fail(
       "PROVIDER_ERROR",

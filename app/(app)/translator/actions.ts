@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { MAX_INPUT_CHARS } from "@/lib/ai/translation-provider";
 import { prisma } from "@/lib/database/prisma";
-import { getCurrentTeacher } from "@/lib/database/queries";
+import { getSessionUser } from "@/lib/auth/guards";
 
 export type CorrectionState = {
   status: "idle" | "saved" | "error";
@@ -43,12 +43,11 @@ export async function saveCorrection(
     return { status: "error", message: "Enter the corrected text before saving." };
   }
 
-  const teacher = await getCurrentTeacher();
+  // Server Actions are reachable by direct POST, so the acting user is read
+  // from the session here and never taken from the form.
+  const teacher = await getSessionUser();
   if (!teacher) {
-    return {
-      status: "error",
-      message: "No teacher account is set up on this installation.",
-    };
+    return { status: "error", message: "Sign in to save a correction." };
   }
 
   const translation = await prisma.translation.findUnique({

@@ -5,7 +5,8 @@ import {
   fileNameFor,
   handleSpeechError,
 } from "@/lib/api/speech-responses";
-import { getCurrentTeacher, getDefaultLanguagePair } from "@/lib/database/queries";
+import { isDenied, requireApiUser } from "@/lib/auth/guards";
+import { getDefaultLanguagePair } from "@/lib/database/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const teacher = await getCurrentTeacher();
+    const authorized = await requireApiUser();
+  if (isDenied(authorized)) return authorized.response;
+  const teacher = authorized.user;
     const service = new VoiceTranslationService();
 
     const outcome = await service.run({

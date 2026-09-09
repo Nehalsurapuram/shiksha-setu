@@ -5,8 +5,8 @@ import { z } from "zod";
 import { FlashcardDeckSchema } from "@/lib/ai/generated-content";
 import { fail } from "@/lib/api/speech-responses";
 import { prisma } from "@/lib/database/prisma";
+import { isDenied, requireApiUser } from "@/lib/auth/guards";
 import {
-  getCurrentTeacher,
   getDefaultLanguagePair,
 } from "@/lib/database/queries";
 
@@ -44,10 +44,11 @@ export async function POST(request: Request) {
     return fail("PROVIDER_ERROR", "The deck is missing required fields.", 400);
   }
 
-  const [teacher, pair] = await Promise.all([
-    getCurrentTeacher(),
-    getDefaultLanguagePair(),
-  ]);
+  const authorized = await requireApiUser();
+  if (isDenied(authorized)) return authorized.response;
+
+  const teacher = authorized.user;
+  const pair = await getDefaultLanguagePair();
 
   if (!teacher) {
     return fail(

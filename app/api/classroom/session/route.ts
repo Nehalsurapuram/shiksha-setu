@@ -2,8 +2,8 @@ import { z } from "zod";
 
 import { fail } from "@/lib/api/speech-responses";
 import { prisma } from "@/lib/database/prisma";
+import { isDenied, requireApiUser } from "@/lib/auth/guards";
 import {
-  getCurrentTeacher,
   getDefaultLanguagePair,
 } from "@/lib/database/queries";
 
@@ -47,10 +47,11 @@ export async function POST(request: Request) {
     return fail("PROVIDER_ERROR", "There is nothing to save yet.", 400);
   }
 
-  const [teacher, pair] = await Promise.all([
-    getCurrentTeacher(),
-    getDefaultLanguagePair(),
-  ]);
+  const authorized = await requireApiUser();
+  if (isDenied(authorized)) return authorized.response;
+
+  const teacher = authorized.user;
+  const pair = await getDefaultLanguagePair();
 
   if (!teacher) {
     return fail(
@@ -99,7 +100,7 @@ export async function POST(request: Request) {
         title: parsed.data.title || null,
         startedAt: new Date(parsed.data.startedAt),
         teacherId: teacher.id,
-        schoolId: teacher.school?.id ?? null,
+        schoolId: teacher.schoolId,
         instructionLanguageId: pair.source.id,
         motherTongueId: pair.target.id,
         messages: {

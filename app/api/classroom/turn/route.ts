@@ -5,8 +5,8 @@ import {
   fileNameFor,
   handleSpeechError,
 } from "@/lib/api/speech-responses";
+import { isDenied, requireApiUser } from "@/lib/auth/guards";
 import {
-  getCurrentTeacher,
   getDefaultLanguagePair,
 } from "@/lib/database/queries";
 
@@ -58,7 +58,9 @@ export async function POST(request: Request) {
   const to = teacherSpeaks ? pair.target : pair.source;
 
   try {
-    const teacher = await getCurrentTeacher();
+    const authorized = await requireApiUser();
+  if (isDenied(authorized)) return authorized.response;
+  const teacher = authorized.user;
     const service = new VoiceTranslationService();
 
     const outcome = await service.run({

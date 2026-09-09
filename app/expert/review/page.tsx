@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { requireCapability } from "@/lib/auth/guards";
 import {
   getCurrentExpert,
   getReviewCounts,
@@ -33,6 +34,10 @@ export const dynamic = "force-dynamic";
  * is right" — the only basis on which anything is marked verified.
  */
 export default async function ExpertReviewPage() {
+  // Authorization, not decoration: a teacher who follows a link here is
+  // refused by the server before any correction is read.
+  await requireCapability("review", "/expert/review");
+
   const [pending, reviewed, counts, expert] = await Promise.all([
     listPendingReviews(),
     listReviewedCorrections(),
@@ -87,11 +92,10 @@ export default async function ExpertReviewPage() {
         </p>
       ) : (
         <p className="mb-6 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-          Acting as <strong>{expert.name}</strong> ({expert.role}). This
-          prototype has no sign-in, so this screen is reachable by anyone who
-          knows the URL and decisions are attributed to the first account holding
-          the role. Authentication is not built yet, and this page says so rather
-          than implying a gate that is not there.
+          Signed in as <strong>{expert.name}</strong> ({expert.role}). This
+          screen is limited to that role server-side: a teacher following a link
+          here is refused before any correction is read, and every verdict is
+          recorded against the account that made it.
         </p>
       )}
 

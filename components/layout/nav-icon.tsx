@@ -1,5 +1,6 @@
 import {
   AudioLines,
+  BadgeCheck,
   BarChart3,
   BookOpen,
   ClipboardCheck,
@@ -23,6 +24,7 @@ import {
  * icon set, which matters on a tablet over a slow rural connection.
  */
 const ICONS: Record<string, LucideIcon> = {
+  BadgeCheck,
   HardDrive,
   LayoutDashboard,
   Languages,

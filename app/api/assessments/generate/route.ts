@@ -15,8 +15,8 @@ import {
 import { translateSheet } from "@/lib/ai/translate-sheet";
 import { TranslationService } from "@/lib/ai/TranslationService";
 import { fail } from "@/lib/api/speech-responses";
+import { isDenied, requireApiUser } from "@/lib/auth/guards";
 import {
-  getCurrentTeacher,
   getDefaultLanguagePair,
 } from "@/lib/database/queries";
 
@@ -59,6 +59,9 @@ export async function POST(request: Request) {
     );
   }
 
+  const authorized = await requireApiUser();
+  if (isDenied(authorized)) return authorized.response;
+
   const pair = await getDefaultLanguagePair();
   if (!pair) return fail("PROVIDER_ERROR", "No language pair is configured.", 503);
 
@@ -89,7 +92,7 @@ export async function POST(request: Request) {
     // only reads `prompt` and `answer`; translation only writes the `*Sat`
     // fields, so sharing `content` between them is safe.
     const sideWorkStart = Date.now();
-    const teacher = parsed.data.translate ? await getCurrentTeacher() : null;
+    const teacher = parsed.data.translate ? authorized.user : null;
 
     const [alignmentResult, translationOutcome] = await Promise.all([
       tryBuildAlignment(() =>

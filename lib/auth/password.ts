@@ -1,12 +1,35 @@
-import "server-only";
+import {
+  randomBytes,
+  scrypt as scryptCallback,
+  timingSafeEqual,
+  type ScryptOptions,
+} from "node:crypto";
 
-import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
-import { promisify } from "node:util";
-
-const scrypt = promisify(scryptCallback);
+/**
+ * Promisified by hand: `promisify`'s typing does not cover the overload that
+ * takes options, and the options are the whole point — the defaults are far
+ * below what a password hash needs.
+ */
+const scrypt = (
+  password: string,
+  salt: Buffer,
+  keylen: number,
+  options: ScryptOptions,
+): Promise<Buffer> =>
+  new Promise((resolve, reject) => {
+    scryptCallback(password, salt, keylen, options, (error, derived) =>
+      error ? reject(error) : resolve(derived),
+    );
+  });
 
 /**
  * Password hashing with scrypt from Node's own crypto module.
+ *
+ * Deliberately *not* marked `server-only`: the seed script is a plain Node
+ * process, not a Next server context, and it needs to hash the demo accounts'
+ * password. Nothing here reads a secret — it is pure crypto over an argument —
+ * and `node:crypto` cannot be bundled for the browser anyway, so importing this
+ * from a Client Component fails the build regardless.
  *
  * scrypt rather than a plain hash because it is deliberately slow and
  * memory-hard: a leaked `passwordHash` column should cost an attacker real
@@ -32,14 +55,14 @@ export async function hashPassword(password: string): Promise<string> {
   }
 
   const salt = randomBytes(16);
-  const derived = (await scrypt(password.normalize("NFKC"), salt, PARAMS.keylen, {
+  const derived = await scrypt(password.normalize("NFKC"), salt, PARAMS.keylen, {
     N: PARAMS.N,
     r: PARAMS.r,
     p: PARAMS.p,
     // Node's default limit is below what N=2^17 needs, and without this the
     // call fails at runtime rather than at review time.
     maxmem: 256 * 1024 * 1024,
-  })) as Buffer;
+  });
 
   return [
     PREFIX,
@@ -84,12 +107,12 @@ export async function verifyPassword(
     const expected = Buffer.from(hashB64, "base64");
     if (expected.length !== keylen) return false;
 
-    const derived = (await scrypt(password.normalize("NFKC"), salt, keylen, {
+    const derived = await scrypt(password.normalize("NFKC"), salt, keylen, {
       N,
       r,
       p,
       maxmem: 256 * 1024 * 1024,
-    })) as Buffer;
+    });
 
     return timingSafeEqual(derived, expected);
   } catch {

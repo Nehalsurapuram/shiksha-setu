@@ -28,13 +28,6 @@ declare module "next-auth" {
   }
 }
 
-declare module "next-auth/jwt" {
-  interface JWT {
-    role: AppRole;
-    schoolId: string | null;
-  }
-}
-
 const CredentialsSchema = z.object({
   email: z.string().email().max(200),
   password: z.string().min(1).max(200),
@@ -121,17 +114,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    /**
+     * The token is the only thing that survives between requests, so the role
+     * goes in at sign-in. `next-auth/jwt`'s type is not augmentable in this
+     * beta, hence the explicit shape rather than a module declaration.
+     */
     async jwt({ token, user }) {
+      const claims = token as typeof token & {
+        role?: AppRole;
+        schoolId?: string | null;
+      };
       if (user) {
-        token.role = user.role;
-        token.schoolId = user.schoolId;
+        claims.role = user.role;
+        claims.schoolId = user.schoolId;
       }
-      return token;
+      return claims;
     },
     async session({ session, token }) {
-      if (token.sub) session.user.id = token.sub;
-      session.user.role = token.role;
-      session.user.schoolId = token.schoolId;
+      const claims = token as typeof token & {
+        role?: AppRole;
+        schoolId?: string | null;
+      };
+      if (claims.sub) session.user.id = claims.sub;
+      // A token with no role predates this field or was tampered with; the
+      // least-privileged role is the safe reading of it either way.
+      session.user.role = claims.role ?? "TEACHER";
+      session.user.schoolId = claims.schoolId ?? null;
       return session;
     },
   },

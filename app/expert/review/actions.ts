@@ -5,7 +5,9 @@ import { z } from "zod";
 
 import { MAX_INPUT_CHARS } from "@/lib/ai/translation-provider";
 import { prisma } from "@/lib/database/prisma";
-import { getCurrentExpert, isPromotable } from "@/lib/validation/review";
+import { getSessionUser } from "@/lib/auth/guards";
+import { can } from "@/lib/auth/guards";
+import { isPromotable } from "@/lib/validation/review";
 
 export type ReviewState = {
   status: "idle" | "done" | "error";
@@ -59,12 +61,11 @@ export async function recordDecision(
     };
   }
 
-  const expert = await getCurrentExpert();
-  if (!expert) {
+  const expert = await getSessionUser();
+  if (!expert || !can(expert.role, "review")) {
     return {
       status: "error",
-      message:
-        "No language expert account exists on this installation, so nothing can be verified here.",
+      message: "Only a language expert can verify a correction.",
     };
   }
 
@@ -146,11 +147,11 @@ export async function promoteToGlossary(
     return { status: "error", message: "Fill in both the term and its translation." };
   }
 
-  const expert = await getCurrentExpert();
-  if (!expert) {
+  const expert = await getSessionUser();
+  if (!expert || !can(expert.role, "review")) {
     return {
       status: "error",
-      message: "No language expert account exists, so nothing can be verified.",
+      message: "Only a language expert can add a verified term.",
     };
   }
 

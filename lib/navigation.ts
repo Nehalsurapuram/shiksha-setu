@@ -84,9 +84,16 @@ export const NAV_ITEMS: NavItem[] = [
     description: "Recorded pronunciations, cached for offline playback.",
   },
   {
+    label: "Administration",
+    href: "/admin",
+    icon: "ShieldCheck",
+    phase: 1,
+    description: "Accounts, schools, languages and verified terminology.",
+  },
+  {
     label: "Expert review",
     href: "/expert/review",
-    icon: "ShieldCheck",
+    icon: "BadgeCheck",
     phase: 1,
     description: "Validate teachers' corrections and build the verified glossary.",
   },
