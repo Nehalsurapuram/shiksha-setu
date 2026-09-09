@@ -20,13 +20,15 @@ Two things enforce it:
   unavailable and what still works — rather than letting a teacher press
   Translate in front of a class and watch it fail.
 
-`/offline-sync` also lists "What does not work offline" explicitly, before
-anything goes wrong.
+`/offline` also lists "What does not work offline" explicitly, before anything
+goes wrong.
 
 ## Where content lives
 
-**IndexedDB** (`lib/offline/db.ts`), nine stores: lessons, translations,
-worksheets, flashcards, assessments, audio, glossary, curriculum, preferences.
+**IndexedDB** (`lib/offline/db.ts`), ten stores: lessons, translations,
+worksheets, flashcards, assessments, audio, glossary, curriculum, outbox,
+preferences. The outbox is the tablet's own changes rather than a copy of
+anything — see [SYNC.md](SYNC.md).
 
 `/api/offline/bundle` assembles everything the teacher can use and the client
 writes it to the device. Deliberately excluded from the bundle:
@@ -97,7 +99,7 @@ worksheets and decks were in the database with no screen to open them.
 ## Service worker
 
 Caches the app shell plus the routes that read from IndexedDB
-(`/dashboard`, `/library`, `/offline-sync`, `/lessons`, `/worksheets`,
+(`/dashboard`, `/library`, `/offline`, `/lessons`, `/worksheets`,
 `/flashcards`, `/assessments`, `/curriculum`, `/settings`).
 
 Deliberately **not** cached: `/translator`, `/voice-assistant`, `/classroom`
@@ -173,7 +175,7 @@ network cut — but not the synthesis step that fills it.
 
 ## Storage management
 
-`/offline-sync` shows what is stored, counted from the device rather than
+`/offline` shows what is stored, counted from the device rather than
 assumed, plus cached audio size. "Clear downloaded content" empties IndexedDB
 and asks the worker to drop its HTTP caches. Preferences survive — they are the
 teacher's own settings, not downloaded content.

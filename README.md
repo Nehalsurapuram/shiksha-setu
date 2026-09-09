@@ -42,6 +42,13 @@ Built to run on low-cost Android tablets with offline-first classroom usage.
 > offline — translation, speech and generation are all HTTP calls — and every
 > screen that needs the network says so the moment the connection drops.
 >
+> Sync runs both ways ([docs/SYNC.md](docs/SYNC.md)). A teacher can **correct a
+> translation with no connection**; the change is queued on the tablet and sent
+> when the network returns. A correction made against a copy the server has
+> since moved past is never applied silently — it comes back as a conflict
+> showing both versions, and only the teacher's explicit choice overwrites
+> newer work.
+>
 > Audio Library and Analytics are **not built**; see
 > [docs/PHASE-1.md](docs/PHASE-1.md) and
 > [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md). Every unbuilt screen says so
@@ -77,6 +84,7 @@ Open <http://localhost:3000>. Health check: `GET /api/health`.
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
 | `npm run offline:check` | Drives a real Chrome with the network cut and verifies saved content still opens (needs `npm run build && npm start` first) |
+| `npm run sync:check` | Types corrections offline in a real Chrome, then verifies they reach Postgres and that conflicts never overwrite newer work |
 | `npm run db:migrate` | Create/apply a migration in development |
 | `npm run db:deploy` | Apply migrations in production |
 | `npm run db:seed` | Load languages, demo school and teacher |
