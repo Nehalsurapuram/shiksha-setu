@@ -15,6 +15,7 @@ import {
   launchChrome,
   openPage,
   reporter,
+  signIn,
   wait,
 } from "./cdp.mjs";
 
@@ -28,6 +29,10 @@ const say = (line) => console.log(line);
 try {
   const cdp = new CDP(await connect(await browserWebSocket(PORT)));
   const page = await openPage(cdp);
+
+  // Since Phase 13 the app requires a session; everything below acts as a
+  // real signed-in user rather than as an anonymous caller.
+  await signIn(page, ORIGIN, "teacher@shikshasetu.local");
   const { evaluate, goto, setOffline } = page;
   const evaluateWithGesture = (expression) =>
     evaluate(expression, { userGesture: true });

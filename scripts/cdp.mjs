@@ -202,6 +202,58 @@ export async function openPage(cdp) {
   return { sessionId, sessions, evaluate, goto, setOffline };
 }
 
+/**
+ * Signs in through the real form.
+ *
+ * Every check in this project drives the app the way a person would, and since
+ * Phase 13 that starts with signing in. Nothing is awaited inside the page
+ * across the submit: signing in navigates, the execution context is destroyed,
+ * and an `await` in it never resolves — which reads as "sign-in is broken" when
+ * sign-in worked perfectly.
+ */
+export async function signIn(
+  page,
+  origin,
+  email,
+  password = process.env.SEED_PASSWORD ?? "shiksha-dev-1234",
+) {
+  await page.goto(`${origin}/login`, 3000);
+
+  const submitted = await page.evaluate(
+    `(() => {
+      const emailField = document.querySelector('input[name="email"]');
+      const passwordField = document.querySelector('input[name="password"]');
+      if (!emailField || !passwordField) return "no form";
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype, "value").set;
+      setter.call(emailField, ${JSON.stringify(email)});
+      emailField.dispatchEvent(new Event("input", { bubbles: true }));
+      setter.call(passwordField, ${JSON.stringify(password)});
+      passwordField.dispatchEvent(new Event("input", { bubbles: true }));
+      const submit = [...document.querySelectorAll("button")]
+        .find(b => b.textContent.includes("Sign in"));
+      if (!submit) return "no submit";
+      submit.click();
+      return "submitted";
+    })()`,
+    { userGesture: true },
+  );
+
+  if (submitted.value !== "submitted") {
+    // Already signed in: /login redirects straight to the dashboard.
+    const where = await page.evaluate(`location.pathname`, { timeoutMs: 5000 });
+    if (where.value === "/dashboard") return true;
+    throw new Error(`could not sign in: ${submitted.value ?? submitted.error}`);
+  }
+
+  for (let attempt = 0; attempt < 15; attempt++) {
+    await wait(1000);
+    const where = await page.evaluate(`location.pathname`, { timeoutMs: 5000 });
+    if (where.value === "/dashboard") return true;
+  }
+  throw new Error("sign-in did not reach the dashboard");
+}
+
 export function reporter() {
   const results = [];
   const check = (name, pass, detail = "") => {

@@ -18,6 +18,7 @@ import {
   launchChrome,
   openPage,
   reporter,
+  signIn,
   wait,
 } from "./cdp.mjs";
 
@@ -105,6 +106,10 @@ try {
   const cdp = new CDP(await connect(await browserWebSocket(PORT)));
   const page = await openPage(cdp);
 
+  // Since Phase 13 the app requires a session; everything below acts as a
+  // real signed-in user rather than as an anonymous caller.
+  await signIn(page, ORIGIN, "expert@shikshasetu.local");
+
   /* ------------------------------------------------------- the screen */
 
   console.log("\n--- /expert/review ---");
@@ -134,8 +139,8 @@ try {
     "",
   );
   check(
-    "It states there is no sign-in on this prototype",
-    text.includes("no sign-in"),
+    "It names the signed-in expert and the role limit",
+    text.includes("Signed in as") && text.includes("limited to that role"),
     "",
   );
 
