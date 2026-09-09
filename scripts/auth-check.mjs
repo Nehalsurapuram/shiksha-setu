@@ -42,23 +42,53 @@ const probe = (...args) =>
 const { check, summary } = reporter();
 const chrome = launchChrome(PORT);
 
-/** Signs in through the real form and waits for the session to settle. */
-const signInScript = (email) => `(async () => {
-  const email = document.querySelector('input[name="email"]');
-  const password = document.querySelector('input[name="password"]');
-  if (!email || !password) return "no form";
+/*
+ * Fills the form and submits, returning immediately.
+ *
+ * Nothing may be awaited in the page across the submit: signing in navigates,
+ * the execution context is destroyed, and an `await` inside it never resolves —
+ * which reads as "sign-in is broken" when sign-in worked perfectly.
+ */
+const signInScript = (email) => `(() => {
+  const emailField = document.querySelector('input[name="email"]');
+  const passwordField = document.querySelector('input[name="password"]');
+  if (!emailField || !passwordField) return "no form";
   const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-  setter.call(email, ${JSON.stringify(email)});
-  email.dispatchEvent(new Event("input", { bubbles: true }));
-  setter.call(password, ${JSON.stringify(PASSWORD)});
-  password.dispatchEvent(new Event("input", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 300));
+  setter.call(emailField, ${JSON.stringify(email)});
+  emailField.dispatchEvent(new Event("input", { bubbles: true }));
+  setter.call(passwordField, ${JSON.stringify(PASSWORD)});
+  passwordField.dispatchEvent(new Event("input", { bubbles: true }));
   const submit = [...document.querySelectorAll("button")].find(b => b.textContent.includes("Sign in"));
   if (!submit) return "no submit";
   submit.click();
-  await new Promise(r => setTimeout(r, 4000));
-  return location.pathname;
+  return "submitted";
 })()`;
+
+/** Polls from outside the page, so a navigation cannot swallow the answer. */
+async function pathAfter(page, expected, attempts = 12) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    await wait(1000);
+    const where = await page.evaluate(`location.pathname`, { timeoutMs: 5000 });
+    if (where.value === expected) return String(where.value);
+  }
+  const last = await page.evaluate(`location.pathname`, { timeoutMs: 5000 });
+  return String(last.value ?? last.error);
+}
+
+/** Signs the current session out through Auth.js's own page. */
+async function signOut(page) {
+  await page.goto(`${ORIGIN}/api/auth/signout`, 2000);
+  await page.evaluate(
+    `(() => {
+      const button = [...document.querySelectorAll("button")]
+        .find(b => b.textContent.toLowerCase().includes("sign out"));
+      if (button) button.click();
+      return "clicked";
+    })()`,
+    { userGesture: true },
+  );
+  await wait(2500);
+}
 
 /** Calls an API from the page, so the browser's cookies come with it. */
 const callApi = (path, init = "{}") => `fetch(${JSON.stringify(path)}, ${init})
@@ -126,14 +156,9 @@ try {
 
   console.log("\n--- SIGNED IN AS TEACHER ---");
   await page.goto(`${ORIGIN}/login`, 3000);
-  const teacherLanding = await page.evaluate(signInScript(ACCOUNTS.teacher), {
-    userGesture: true,
-  });
-  check(
-    "A teacher can sign in",
-    String(teacherLanding.value) === "/dashboard",
-    String(teacherLanding.value ?? teacherLanding.error),
-  );
+  await page.evaluate(signInScript(ACCOUNTS.teacher), { userGesture: true });
+  const teacherLanding = await pathAfter(page, "/dashboard");
+  check("A teacher can sign in", teacherLanding === "/dashboard", teacherLanding);
 
   const cookies = await cdp.send("Network.getCookies", { urls: [ORIGIN] }, page.sessionId);
   const session = cookies.cookies.find((cookie) =>
@@ -224,22 +249,17 @@ try {
   /* -------------------------------------------------------- the expert */
 
   console.log("\n--- SIGNED IN AS LANGUAGE EXPERT ---");
-  await page.goto(`${ORIGIN}/api/auth/signout`, 2000);
-  await page.evaluate(`(async () => {
-    const b = [...document.querySelectorAll("button")].find(b => b.textContent.includes("Sign out"));
-    if (b) { b.click(); await new Promise(r => setTimeout(r, 2500)); }
-    return "done";
-  })()`, { userGesture: true });
-
+  await signOut(page);
   await page.goto(`${ORIGIN}/login`, 3000);
   await page.evaluate(signInScript(ACCOUNTS.expert), { userGesture: true });
+  await pathAfter(page, "/dashboard");
 
   await page.goto(`${ORIGIN}/expert/review`, 3000);
   const expertPage = await page.evaluate(`location.pathname`);
   check(
     "A language expert can open the review screen",
     String(expertPage.value) === "/expert/review",
-    String(expertPage.value),
+    String(expertPage.value ?? expertPage.error),
   );
 
   const expertAtAdmin = JSON.parse(
@@ -254,15 +274,10 @@ try {
   /* --------------------------------------------------------- the admin */
 
   console.log("\n--- SIGNED IN AS ADMIN ---");
-  await page.goto(`${ORIGIN}/api/auth/signout`, 2000);
-  await page.evaluate(`(async () => {
-    const b = [...document.querySelectorAll("button")].find(b => b.textContent.includes("Sign out"));
-    if (b) { b.click(); await new Promise(r => setTimeout(r, 2500)); }
-    return "done";
-  })()`, { userGesture: true });
-
+  await signOut(page);
   await page.goto(`${ORIGIN}/login`, 3000);
   await page.evaluate(signInScript(ACCOUNTS.admin), { userGesture: true });
+  await pathAfter(page, "/dashboard");
 
   await page.goto(`${ORIGIN}/admin`, 3000);
   const adminLanding = await page.evaluate(`location.pathname`);

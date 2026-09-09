@@ -53,6 +53,15 @@ const CredentialsSchema = z.object({
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: env.AUTH_SECRET,
+  /*
+   * Auth.js refuses to derive its own callback URLs from the Host header
+   * unless told to, and off Vercel that refusal fails every session read with
+   * `UntrustedHost`. This deployment is a Node process behind whatever proxy a
+   * district happens to run, so the host is trusted here — and `AUTH_URL`
+   * should be set in any real deployment, which pins the origin explicitly and
+   * makes the Host header irrelevant rather than merely trusted.
+   */
+  trustHost: true,
   session: {
     strategy: "jwt",
     // A school day plus a margin. Long enough that a teacher is not signing in
