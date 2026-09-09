@@ -226,7 +226,17 @@ try {
   })()`);
   check("Cached audio is listed offline", audioTab.value === "listed", String(audioTab.value ?? audioTab.error));
 
-  const played = await evaluateWithGesture(`(async () => {
+  /*
+   * Two questions, deliberately separated.
+   *
+   * "Do the cached bytes decode?" is about this application: the clip came out
+   * of IndexedDB with no network and the browser could read it as audio.
+   * "Did it come out of the speakers?" also depends on the machine having a
+   * working audio output, which a headless-ish test profile may not — after
+   * this laptop slept, `play()` stopped settling at all. Reporting that as an
+   * offline-cache failure would be blaming the app for the room.
+   */
+  const decoded = await evaluate(`(async () => {
     const db = await new Promise((resolve) => {
       const req = indexedDB.open("shikshasetu-offline");
       req.onsuccess = () => resolve(req.result);
@@ -235,28 +245,82 @@ try {
       const r = db.transaction("audio").objectStore("audio").get("flashcard:offline-check");
       r.onsuccess = () => resolve(r.result);
     });
-    if (!clip) return "clip not on device";
+    if (!clip) return JSON.stringify({ error: "clip not on device" });
+
     const audio = new Audio(URL.createObjectURL(clip.blob));
-    const ended = new Promise((resolve) => {
-      audio.addEventListener("ended", () => resolve("ended"), { once: true });
-      setTimeout(() => resolve("timeout"), 3000);
+    const ready = await new Promise((resolve) => {
+      audio.addEventListener("loadedmetadata", () => resolve("metadata"), { once: true });
+      audio.addEventListener("error", () => resolve("decode error"), { once: true });
+      setTimeout(() => resolve("timeout"), 8000);
     });
-    await audio.play();
-    const how = await ended;
     return JSON.stringify({
-      how,
-      paused: audio.paused,
+      ready,
       duration: audio.duration,
-      currentTime: audio.currentTime,
-      readyState: audio.readyState,
+      bytes: clip.blob.size,
+      type: clip.mimeType,
     });
   })()`);
+
+  const decodedInfo = JSON.parse(String(decoded.value ?? "{}"));
   check(
-    "Cached audio plays with no network",
-    String(played.value ?? "").includes('"how":"ended"') ||
-      Number(JSON.parse(String(played.value ?? "{}")).currentTime ?? 0) > 0,
-    String(played.value ?? played.error),
+    "Cached audio decodes from IndexedDB with no network",
+    decodedInfo.ready === "metadata" && Number(decodedInfo.duration) > 0,
+    String(decoded.value ?? decoded.error),
   );
+
+  // Playback itself, bounded so a machine that cannot open an audio device
+  // fails fast instead of hanging the run inside `play()`.
+  const playScript = (source) => `(async () => {
+    const audio = ${source};
+    const settled = await Promise.race([
+      audio.play().then(() => "started").catch((e) => "rejected: " + e.name),
+      new Promise((r) => setTimeout(() => r("play() never settled"), 4000)),
+    ]);
+    if (settled !== "started") return JSON.stringify({ settled });
+    await new Promise((r) => {
+      audio.addEventListener("ended", r, { once: true });
+      setTimeout(r, 3000);
+    });
+    return JSON.stringify({ settled, currentTime: audio.currentTime });
+  })()`;
+
+  const fromDevice = await evaluateWithGesture(playScript(`await (async () => {
+    const db = await new Promise((resolve) => {
+      const req = indexedDB.open("shikshasetu-offline");
+      req.onsuccess = () => resolve(req.result);
+    });
+    const clip = await new Promise((resolve) => {
+      const r = db.transaction("audio").objectStore("audio").get("flashcard:offline-check");
+      r.onsuccess = () => resolve(r.result);
+    });
+    return new Audio(URL.createObjectURL(clip.blob));
+  })()`));
+
+  const devicePlay = JSON.parse(String(fromDevice.value ?? "{}"));
+  if (Number(devicePlay.currentTime ?? 0) > 0) {
+    check(
+      "Cached audio plays with no network",
+      true,
+      String(fromDevice.value),
+    );
+  } else {
+    // Control: a clip that never touched IndexedDB, played the same way. If
+    // this fails too, the machine has no working audio and neither result says
+    // anything about the cache.
+    const control = await evaluateWithGesture(
+      playScript(`new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=")`),
+    );
+    const controlPlay = JSON.parse(String(control.value ?? "{}"));
+    const machineCanPlay = controlPlay.settled === "started";
+
+    check(
+      machineCanPlay
+        ? "Cached audio plays with no network"
+        : "Cached audio playback SKIPPED — this machine has no working audio output",
+      !machineCanPlay,
+      `device: ${fromDevice.value ?? fromDevice.error} | control: ${control.value ?? control.error}`,
+    );
+  }
 
   // Other cached routes.
   for (const route of ["/dashboard", "/offline", "/curriculum"]) {
