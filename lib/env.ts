@@ -16,6 +16,10 @@ import { z } from "zod";
  * at all. Now a missing variable surfaces on the first request that actually
  * needs it, with the same clear message, instead of failing the build with a
  * stack trace pointing at page-data collection.
+ *
+ * Laziness only holds if callers keep it: reading `env.X` at module scope
+ * re-introduces the build failure, because Next imports every route module to
+ * collect page data. Read it inside a function or request handler.
  */
 const schema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
@@ -51,7 +55,14 @@ let cached: Env | undefined;
 export function getEnv(): Env {
   if (cached) return cached;
 
-  const parsed = schema.safeParse(process.env);
+  // An unset variable and one set to "" mean the same thing here. Vercel and
+  // most CI systems keep a declared-but-blank variable in the environment, and
+  // an empty string would otherwise skip `.default()` and fail the enums.
+  const present = Object.fromEntries(
+    Object.entries(process.env).filter(([, value]) => value !== ""),
+  );
+
+  const parsed = schema.safeParse(present);
 
   if (!parsed.success) {
     const issues = parsed.error.issues
