@@ -70,7 +70,23 @@ async function main() {
       targetLanguageId: santhali.id,
     },
   });
-  console.log("Seeded demo school and teacher.");
+  // A language expert as well as a teacher: /expert/review can only attribute
+  // an approval to an account holding the role, and a review screen that cannot
+  // approve anything is not a demonstration of anything.
+  await prisma.user.upsert({
+    where: { email: "expert@shikshasetu.local" },
+    update: {},
+    create: {
+      email: "expert@shikshasetu.local",
+      name: "Demo Language Expert",
+      role: "LANGUAGE_EXPERT",
+      schoolId: school.id,
+      sourceLanguageId: hindi.id,
+      targetLanguageId: santhali.id,
+    },
+  });
+
+  console.log("Seeded demo school, teacher and language expert.");
 
   // Sample lessons, so the dashboard reads real rows instead of hard-coded
   // numbers. Marked isSample so every screen can label them as such. No

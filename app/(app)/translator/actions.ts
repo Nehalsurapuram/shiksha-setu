@@ -75,8 +75,13 @@ export async function saveCorrection(
           correctedById: teacher.id,
           correctedText: parsed.data.correctedText,
           reason: parsed.data.reason ?? null,
-          // A correction typed by the teacher who will teach the lesson is
-          // authoritative here; there is no separate review step yet.
+          // Snapshot what the model said, so the pair survives even if this
+          // translation is later re-translated. The difference between the two
+          // is the whole value of the correction.
+          aiTranslation: translation.targetText,
+          // The teacher uses their own correction in their own classroom
+          // immediately — a lesson cannot wait for review. Whether it becomes
+          // *verified* is a language expert's call, on /expert/review.
           isAccepted: true,
         },
       }),

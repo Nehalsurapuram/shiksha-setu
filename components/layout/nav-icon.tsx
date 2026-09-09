@@ -13,12 +13,13 @@ import {
   Mic,
   RefreshCw,
   Settings,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 
 /**
  * Explicit map rather than a dynamic lucide lookup: this keeps the bundle to
- * the thirteen icons the sidebar actually uses instead of pulling in the whole
+ * the icons the sidebar actually uses instead of pulling in the whole
  * icon set, which matters on a tablet over a slow rural connection.
  */
 const ICONS: Record<string, LucideIcon> = {
@@ -36,6 +37,7 @@ const ICONS: Record<string, LucideIcon> = {
   RefreshCw,
   BarChart3,
   Settings,
+  ShieldCheck,
 };
 
 export function NavIcon({

@@ -173,8 +173,10 @@ async function applyItem(
         correctedById: userId,
         correctedText: item.payload.correctedText,
         reason: item.payload.reason,
-        // Same rule as the online path: the teacher who will teach the lesson
-        // is authoritative, and there is no separate review step yet.
+        // What the model produced, kept with the correction. Same as the online
+        // path — an offline correction is not a lesser record, and it goes to
+        // an expert for verification exactly like one typed at a desk.
+        aiTranslation: translation.targetText,
         isAccepted: true,
       },
     }),

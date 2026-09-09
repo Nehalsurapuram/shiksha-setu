@@ -67,6 +67,10 @@ export async function POST(request: Request) {
       confidence: outcome.confidence,
       durationMs: outcome.durationMs,
       translationId: outcome.translationId,
+      // Null unless a person's approved wording was served instead of a
+      // model's. The UI must be able to tell the two apart.
+      verifiedBy: outcome.verifiedBy,
+      verifiedApprover: outcome.verifiedApprover,
     });
   } catch (error) {
     if (error instanceof TranslationError) {

@@ -54,6 +54,15 @@ Built to run on low-cost Android tablets with offline-first classroom usage.
 > [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md). Every unbuilt screen says so
 > plainly rather than showing sample output.
 >
+> Translations are **validated by people** ([docs/VALIDATION.md](docs/VALIDATION.md)).
+> A teacher corrects what the model produced; a language expert approves,
+> rewrites or rejects that correction on `/expert/review`; an approved
+> correction can become a `GlossaryTerm` marked verified, traceable to the
+> approval behind it. Verified text is then served in place of the model's, and
+> labelled as a person's work rather than a machine's. **No model is retrained**
+> — approved corrections are used as terminology and context data, which is the
+> only claim this prototype can make honestly.
+>
 > Without a `SARVAM_API_KEY` the translator and voice assistant run in demo
 > mode, returning labelled placeholders — never invented Santhali, and never a
 > fabricated transcript.
@@ -85,6 +94,7 @@ Open <http://localhost:3000>. Health check: `GET /api/health`.
 | `npm run lint` | ESLint |
 | `npm run offline:check` | Drives a real Chrome with the network cut and verifies saved content still opens (needs `npm run build && npm start` first) |
 | `npm run sync:check` | Types corrections offline in a real Chrome, then verifies they reach Postgres and that conflicts never overwrite newer work |
+| `npm run validation:check` | Drives the expert review screen and verifies that only an approval produces verified text and a verified glossary term |
 | `npm run db:migrate` | Create/apply a migration in development |
 | `npm run db:deploy` | Apply migrations in production |
 | `npm run db:seed` | Load languages, demo school and teacher |

@@ -15,6 +15,9 @@ enum UserRole {
   TEACHER
   HEAD_TEACHER
   COORDINATOR
+  /// Validates teachers' corrections. The only role whose approval can mark a
+  /// translation or a glossary term verified.
+  LANGUAGE_EXPERT
   ADMIN
 }
 
@@ -112,11 +115,11 @@ model School {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users            User[]
-  lessons          Lesson[]
-  analyticsEvents  AnalyticsEvent[]
+  users               User[]
+  lessons             Lesson[]
+  analyticsEvents     AnalyticsEvent[]
   outcomeObservations OutcomeObservation[]
-  classroomSessions ClassroomSession[]
+  classroomSessions   ClassroomSession[]
 
   @@index([district, block])
   @@index([state])
@@ -143,18 +146,19 @@ model User {
   targetLanguageId String?
   targetLanguage   Language? @relation("UserTargetLanguage", fields: [targetLanguageId], references: [id], onDelete: SetNull)
 
-  lessons          Lesson[]
-  translations     Translation[]
-  glossaryTerms    GlossaryTerm[]
-  worksheets       Worksheet[]
-  flashcards       Flashcard[]
-  assessments      Assessment[]
-  audios           Audio[]
-  corrections      TranslationCorrection[]
+  lessons             Lesson[]
+  translations        Translation[]
+  glossaryTerms       GlossaryTerm[]
+  worksheets          Worksheet[]
+  flashcards          Flashcard[]
+  assessments         Assessment[]
+  audios              Audio[]
+  corrections         TranslationCorrection[]
+  reviewedCorrections TranslationCorrection[] @relation("CorrectionReviewer")
   outcomeObservations OutcomeObservation[]
-  syncItems        SyncItem[]
-  analyticsEvents  AnalyticsEvent[]
-  classroomSessions ClassroomSession[]
+  syncItems           SyncItem[]
+  analyticsEvents     AnalyticsEvent[]
+  classroomSessions   ClassroomSession[]
 
   @@index([schoolId])
   @@index([role])
@@ -190,10 +194,10 @@ model Language {
   flashcards Flashcard[]
   audios     Audio[]
 
-  sessionsAsInstruction ClassroomSession[] @relation("SessionInstructionLanguage")
+  sessionsAsInstruction  ClassroomSession[] @relation("SessionInstructionLanguage")
   sessionsAsMotherTongue ClassroomSession[] @relation("SessionMotherTongue")
-  messagesAsSource ClassroomMessage[] @relation("MessageSourceLanguage")
-  messagesAsTarget ClassroomMessage[] @relation("MessageTargetLanguage")
+  messagesAsSource       ClassroomMessage[] @relation("MessageSourceLanguage")
+  messagesAsTarget       ClassroomMessage[] @relation("MessageTargetLanguage")
 
   @@index([status])
   @@index([isTarget])
@@ -202,14 +206,14 @@ model Language {
 // ---------------------------------------------------------------- content
 
 model Lesson {
-  id              String       @id @default(cuid())
-  title           String
-  subject         String?
-  grade           Int?
-  topic           String?
-  sourceText      String       @db.Text
+  id               String       @id @default(cuid())
+  title            String
+  subject          String?
+  grade            Int?
+  topic            String?
+  sourceText       String       @db.Text
   /// The mother-tongue version, when one has been produced.
-  translatedText  String?      @db.Text
+  translatedText   String?      @db.Text
   /// Provenance of sourceText, so a teacher can see where the words came from:
   /// a PDF text layer, OCR of a photo, a Word file, or typed by hand.
   originalFileName String?
@@ -218,17 +222,17 @@ model Lesson {
   /// Suggested FLN alignment for this material: plain-language learning area,
   /// competency and outcome produced by a model, never official codes. Null
   /// when no alignment has been generated.
-  alignment       Json?
-  status          LessonStatus @default(DRAFT)
-  isOfflinePinned Boolean      @default(false)
+  alignment        Json?
+  status           LessonStatus @default(DRAFT)
+  isOfflinePinned  Boolean      @default(false)
   /// Seeded demo content, not a teacher's own work. The UI labels these so a
   /// populated-looking dashboard is never mistaken for real classroom history.
-  isSample        Boolean      @default(false)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  isSample         Boolean      @default(false)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
   /// When a teacher last opened this lesson. Drives "Continue teaching";
   /// null means it has never been opened.
-  lastOpenedAt    DateTime?
+  lastOpenedAt     DateTime?
 
   authorId String
   author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
@@ -241,13 +245,13 @@ model Lesson {
   targetLanguageId String
   targetLanguage   Language @relation("LessonTargetLanguage", fields: [targetLanguageId], references: [id])
 
-  translations     Translation[]
-  worksheets       Worksheet[]
-  flashcards       Flashcard[]
-  assessments      Assessment[]
-  audios           Audio[]
+  translations        Translation[]
+  worksheets          Worksheet[]
+  flashcards          Flashcard[]
+  assessments         Assessment[]
+  audios              Audio[]
   outcomeObservations OutcomeObservation[]
-  teachingPackage  TeachingPackage?
+  teachingPackage     TeachingPackage?
 
   @@index([authorId])
   @@index([schoolId])
@@ -279,8 +283,8 @@ model Translation {
   targetLanguageId String
   targetLanguage   Language @relation("TranslationTargetLanguage", fields: [targetLanguageId], references: [id])
 
-  corrections TranslationCorrection[]
-  audios      Audio[]
+  corrections       TranslationCorrection[]
+  audios            Audio[]
   classroomMessages ClassroomMessage[]
 
   @@unique([contentHash, sourceLanguageId, targetLanguageId])
@@ -289,12 +293,41 @@ model Translation {
   @@index([createdById])
 }
 
+/// A human's judgement on one machine translation, and what an expert made of it.
+///
+/// Two levels, deliberately kept apart:
+///   isAccepted — the teacher uses this text in their own classroom. True from
+///                the moment they type it; their lesson cannot wait for review.
+///   status     — a language expert's verdict. Only APPROVED text may be
+///                promoted to a verified glossary term or served to anyone
+///                else, because only that has been checked by someone who
+///                speaks the mother tongue.
 model TranslationCorrection {
   id            String   @id @default(cuid())
   correctedText String   @db.Text
   reason        String?
   isAccepted    Boolean  @default(false)
   createdAt     DateTime @default(now())
+
+  /// What the model produced, copied in when the correction was made.
+  /// Snapshotted rather than read back through the relation: the point of a
+  /// correction is the difference between the two, and that is lost if the
+  /// translation it points at is later re-translated.
+  aiTranslation String? @db.Text
+
+  /// The expert's verdict. UNREVIEWED until someone with the role looks.
+  status     ReviewStatus @default(UNREVIEWED)
+  /// The expert's own wording, when they neither approved nor rejected the
+  /// teacher's. Kept separate so the teacher's text is never overwritten.
+  expertText String?      @db.Text
+  reviewNote String?
+  reviewedAt DateTime?
+
+  reviewedById String?
+  reviewedBy   User?   @relation("CorrectionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  /// Set when this correction became a verified glossary term.
+  promotedTermId String?
 
   translationId String
   translation   Translation @relation(fields: [translationId], references: [id], onDelete: Cascade)
@@ -305,19 +338,24 @@ model TranslationCorrection {
   @@index([translationId])
   @@index([correctedById])
   @@index([isAccepted])
+  @@index([status, createdAt])
 }
 
 model GlossaryTerm {
-  id           String   @id @default(cuid())
-  sourceTerm   String
-  targetTerm   String
-  domain       String? // e.g. "science", "maths", "civics"
-  partOfSpeech String?
-  notes        String?
-  isVerified   Boolean  @default(false)
-  usageCount   Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  sourceTerm         String
+  targetTerm         String
+  domain             String? // e.g. "science", "maths", "civics"
+  partOfSpeech       String?
+  notes              String?
+  isVerified         Boolean  @default(false)
+  /// The approved correction this term came from, when it was promoted rather
+  /// than typed in directly. A verified term must be traceable to the person
+  /// who approved it.
+  sourceCorrectionId String?
+  usageCount         Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   createdById String?
   createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
@@ -405,24 +443,24 @@ model Flashcard {
 }
 
 model Assessment {
-  id        String         @id @default(cuid())
-  title     String
-  kind      AssessmentKind @default(ORAL)
-  grade     Int?
-  subject   String?
-  topic     String?
+  id         String         @id @default(cuid())
+  title      String
+  kind       AssessmentKind @default(ORAL)
+  grade      Int?
+  subject    String?
+  topic      String?
   difficulty String?
   /// Bilingual questions, each with its own type and its own correct answer.
   /// The answer key is rendered from this rather than stored twice, so the two
   /// can never drift apart.
-  questions Json
-  maxScore  Int            @default(10)
-  alignment Json?
-  provider  String?
-  model     String?
-  isEdited  Boolean        @default(false)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  questions  Json
+  maxScore   Int            @default(10)
+  alignment  Json?
+  provider   String?
+  model      String?
+  isEdited   Boolean        @default(false)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
 
   lessonId String?
   lesson   Lesson? @relation(fields: [lessonId], references: [id], onDelete: Cascade)
@@ -560,12 +598,12 @@ enum ClassroomSpeaker {
 /// Sessions are the record of what was actually said in a classroom, which is
 /// where the evidence for whether this product helps will eventually come from.
 model ClassroomSession {
-  id        String    @id @default(cuid())
+  id        String   @id @default(cuid())
   title     String?
   startedAt DateTime
-  savedAt   DateTime  @default(now())
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  savedAt   DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   teacherId String
   teacher   User   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
@@ -585,18 +623,18 @@ model ClassroomSession {
 }
 
 model ClassroomMessage {
-  id       String           @id @default(cuid())
-  speaker  ClassroomSpeaker
+  id             String           @id @default(cuid())
+  speaker        ClassroomSpeaker
   /// What was said, in the speaker's own language.
-  sourceText String         @db.Text
+  sourceText     String           @db.Text
   /// What the other person was shown. Null if translation failed for this turn.
-  translatedText String?    @db.Text
+  translatedText String?          @db.Text
   /// Whether audio was actually produced for the translation.
-  hadAudio Boolean          @default(false)
+  hadAudio       Boolean          @default(false)
   /// Measured end-to-end time for this turn, in milliseconds.
-  latencyMs Int?
-  spokenAt DateTime
-  createdAt DateTime        @default(now())
+  latencyMs      Int?
+  spokenAt       DateTime
+  createdAt      DateTime         @default(now())
 
   sessionId String
   session   ClassroomSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -612,7 +650,6 @@ model ClassroomMessage {
   @@index([sessionId, spokenAt])
   @@index([translationId])
 }
-
 
 /// The generated teaching material for a lesson.
 ///
@@ -637,8 +674,8 @@ model TeachingPackage {
   generatedAt DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  lessonId String  @unique
-  lesson   Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  lessonId String @unique
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 }
 
 // ---------------------------------------------------------------- FLN alignment
@@ -655,23 +692,23 @@ model TeachingPackage {
 /// official alignment. Generated alignments are labelled "Suggested FLN
 /// Alignment" and are never written here.
 model LearningOutcome {
-  id           String   @id @default(cuid())
+  id             String   @id @default(cuid())
   /// e.g. "Foundational Literacy", "Foundational Numeracy".
-  learningArea String
-  competency   String   @db.Text
-  outcome      String   @db.Text
+  learningArea   String
+  competency     String   @db.Text
+  outcome        String   @db.Text
   /// The class this outcome belongs to. Null means it spans several.
-  classLevel   Int?
-  subject      String?
+  classLevel     Int?
+  subject        String?
   /// Citation for where this came from — a document title, edition and page,
   /// or a URL. NULL MEANS UNVERIFIED, and the UI must say so. Nothing written
   /// by a model may ever set this field.
   verifiedSource String?
   /// The framework's own code, only ever copied from verified source data.
   /// Never generated, never inferred.
-  code         String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  code           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@unique([learningArea, competency, outcome, classLevel])
   @@index([classLevel, subject])
