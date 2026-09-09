@@ -49,7 +49,8 @@ and a merge would leave deleted material on tablets indefinitely.
 Verified learning outcomes sync to the device like any other content, so
 `/library` has a Curriculum tab that reads from the tablet.
 
-`/offline-sync` previously ticked Curriculum from a **server** count, inside a
+The Sync Center (then `/offline-sync`, now `/offline`) previously ticked
+Curriculum from a **server** count, inside a
 card whose own description reads "Counted from this device, not from the
 server". Every row there is now counted from IndexedDB, and the explanation for
 a zero — no verified catalogue is loaded on this installation — sits beneath the
@@ -67,7 +68,7 @@ Chrome rasterises an SVG icon; the Android WebView and Samsung Internet builds
 these tablets ship with do not reliably do so, and an installer that cannot
 produce an icon does not offer the install at all.
 
-`InstallApp` on `/offline-sync` shows a real button **only** when the browser
+`InstallApp` on `/offline` shows a real button **only** when the browser
 has actually fired `beforeinstallprompt`. Calling `prompt()` without that stored
 event silently does nothing, and a dead button on a tablet someone is setting up
 before class is worse than none — so every other browser gets the manual
@@ -77,7 +78,7 @@ changes how the app opens, not what it can do without a network.
 ## Audio
 
 Cached audio is stored as **Blob bytes**, not URLs — a URL is useless offline.
-Clips are synthesised while online from `/offline-sync` and played from
+Clips are synthesised while online from `/offline` and played from
 IndexedDB afterwards.
 
 `/library` has an Audio tab listing every clip on the device with its size and
@@ -162,7 +163,7 @@ not be checked before.
 | Saved lesson offline | opens and renders its Hindi source text |
 | Audio offline | a stored clip is listed and plays to `ended` from IndexedDB |
 | Curriculum offline | reads from the device; `/curriculum` opens from cache |
-| Cached routes offline | `/dashboard`, `/offline-sync`, `/curriculum` all render |
+| Cached routes offline | `/dashboard`, `/offline`, `/curriculum` all render |
 | `/translator` offline | **not** served from cache — says the connection is needed |
 | Credentials in bundle | none |
 | Manifest | serves the PNG install icons |
