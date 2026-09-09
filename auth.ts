@@ -50,8 +50,13 @@ const CredentialsSchema = z.object({
  *
  * The secret is read through `lib/env`, which is `server-only`. It is never
  * NEXT_PUBLIC_ and never reaches the browser.
+ *
+ * The config is a function, not an object, so `env.AUTH_SECRET` is read on the
+ * first request rather than when this module is imported. `next build` imports
+ * every route that touches auth in order to collect page data, and an object
+ * literal here made that collection fail on a machine with no secrets.
  */
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
   secret: env.AUTH_SECRET,
   /*
    * Auth.js refuses to derive its own callback URLs from the Host header
@@ -152,4 +157,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     },
   },
-});
+}));
