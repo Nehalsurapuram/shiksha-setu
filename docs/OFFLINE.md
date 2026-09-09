@@ -152,7 +152,7 @@ worker target so requests genuinely fail. Headful on purpose: headless Chrome
 discards service worker registrations, which is why the cached-shell path could
 not be checked before.
 
-**21 of 21 checks passed**, with `fetch("/api/health")` confirmed failing and
+**22 of 22 checks passed**, with `fetch("/api/health")` confirmed failing and
 `navigator.onLine` false throughout the offline half.
 
 | | |
@@ -161,12 +161,18 @@ not be checked before.
 | Downloaded to IndexedDB | 8 lessons, 59 translations, 3 worksheets, 3 flashcards, 1 assessment |
 | `/library` offline | loads from cache, hydrates, tabs show real device counts |
 | Saved lesson offline | opens and renders its Hindi source text |
-| Audio offline | a stored clip is listed and plays to `ended` from IndexedDB |
+| Audio offline | a stored clip is listed, decodes from IndexedDB (0.3s, 4844 bytes) and plays |
 | Curriculum offline | reads from the device; `/curriculum` opens from cache |
 | Cached routes offline | `/dashboard`, `/offline`, `/curriculum` all render |
 | `/translator` offline | **not** served from cache — says the connection is needed |
 | Credentials in bundle | none |
 | Manifest | serves the PNG install icons |
+
+Decoding and playback are separate checks. Decoding is about this application —
+bytes came out of IndexedDB with no network and the browser read them as audio.
+Playing also depends on the machine having a working audio output, which this
+laptop lost after a sleep; the harness now says so explicitly rather than
+reporting a missing sound card as a broken cache.
 
 **Not verified here:** audio synthesised by the real provider. This machine runs
 with `ENABLE_DEMO_MODE=true`, so no clip is generated to cache, and the audio
