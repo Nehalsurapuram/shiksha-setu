@@ -1,0 +1,155 @@
+import NextAuth, { type DefaultSession } from "next-auth";
+import Credentials from "next-auth/providers/credentials";
+import { z } from "zod";
+
+import { equaliseTiming, verifyPassword } from "@/lib/auth/password";
+import { prisma } from "@/lib/database/prisma";
+import { env } from "@/lib/env";
+
+export type AppRole =
+  | "TEACHER"
+  | "HEAD_TEACHER"
+  | "COORDINATOR"
+  | "LANGUAGE_EXPERT"
+  | "ADMIN";
+
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      role: AppRole;
+      schoolId: string | null;
+    } & DefaultSession["user"];
+  }
+
+  interface User {
+    role: AppRole;
+    schoolId: string | null;
+  }
+}
+
+const CredentialsSchema = z.object({
+  email: z.string().email().max(200),
+  password: z.string().min(1).max(200),
+});
+
+/**
+ * Auth.js with a credentials provider and JWT sessions.
+ *
+ * Credentials rather than an OAuth provider because these accounts belong to
+ * teachers in schools with no institutional Google or Microsoft tenant, and a
+ * device shared between two teachers cannot depend on either of them holding a
+ * personal account.
+ *
+ * JWT sessions rather than database sessions because the tablets this runs on
+ * are frequently offline: a session that needs a database round trip per
+ * request would log a teacher out every time the connection drops, in the one
+ * situation where the app is most needed. The trade-off is that a role change
+ * takes effect on the next sign-in, and `requireRole` re-reads the user from
+ * the database for anything that grants access to another person's data.
+ *
+ * The secret is read through `lib/env`, which is `server-only`. It is never
+ * NEXT_PUBLIC_ and never reaches the browser.
+ */
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  secret: env.AUTH_SECRET,
+  /*
+   * Auth.js refuses to derive its own callback URLs from the Host header
+   * unless told to, and off Vercel that refusal fails every session read with
+   * `UntrustedHost`. This deployment is a Node process behind whatever proxy a
+   * district happens to run, so the host is trusted here — and `AUTH_URL`
+   * should be set in any real deployment, which pins the origin explicitly and
+   * makes the Host header irrelevant rather than merely trusted.
+   */
+  trustHost: true,
+  session: {
+    strategy: "jwt",
+    // A school day plus a margin. Long enough that a teacher is not signing in
+    // between lessons, short enough that a lost tablet is not a standing key.
+    maxAge: 12 * 60 * 60,
+  },
+  pages: {
+    signIn: "/login",
+    error: "/login",
+  },
+  providers: [
+    Credentials({
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(raw) {
+        const parsed = CredentialsSchema.safeParse(raw);
+        if (!parsed.success) return null;
+
+        const { email, password } = parsed.data;
+
+        const user = await prisma.user.findUnique({
+          where: { email: email.toLowerCase().trim() },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+            schoolId: true,
+            passwordHash: true,
+            isActive: true,
+          },
+        });
+
+        // Same work whether or not the account exists, so response time does
+        // not answer "is this address registered?".
+        if (!user?.passwordHash) {
+          await equaliseTiming(password);
+          return null;
+        }
+
+        const ok = await verifyPassword(password, user.passwordHash);
+        if (!ok || !user.isActive) return null;
+
+        await prisma.user
+          .update({ where: { id: user.id }, data: { lastSeenAt: new Date() } })
+          .catch(() => undefined);
+
+        // Only these fields reach the token. The hash never leaves this scope.
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role as AppRole,
+          schoolId: user.schoolId,
+        };
+      },
+    }),
+  ],
+  callbacks: {
+    /**
+     * The token is the only thing that survives between requests, so the role
+     * goes in at sign-in. `next-auth/jwt`'s type is not augmentable in this
+     * beta, hence the explicit shape rather than a module declaration.
+     */
+    async jwt({ token, user }) {
+      const claims = token as typeof token & {
+        role?: AppRole;
+        schoolId?: string | null;
+      };
+      if (user) {
+        claims.role = user.role;
+        claims.schoolId = user.schoolId;
+      }
+      return claims;
+    },
+    async session({ session, token }) {
+      const claims = token as typeof token & {
+        role?: AppRole;
+        schoolId?: string | null;
+      };
+      if (claims.sub) session.user.id = claims.sub;
+      // A token with no role predates this field or was tampered with; the
+      // least-privileged role is the safe reading of it either way.
+      session.user.role = claims.role ?? "TEACHER";
+      session.user.schoolId = claims.schoolId ?? null;
+      return session;
+    },
+  },
+});

@@ -9,7 +9,18 @@ export { MAX_INPUT_CHARS } from "@/lib/ai/translation-limits";
  * so adding a second real provider later is a new file plus one line in the
  * service's selection logic.
  */
-export type ProviderId = "sarvam" | "demo";
+/**
+ * Where a translation came from.
+ *
+ * "sarvam" and "demo" are providers in the usual sense. "glossary" and "human"
+ * are not — nothing was generated, a stored human decision was served — and
+ * they are in this union precisely so no screen can display a person's approved
+ * wording as if a model produced it.
+ */
+export type ProviderId = "sarvam" | "demo" | "glossary" | "human";
+
+/** The subset a `TranslationProvider` may return: something was generated. */
+export type GeneratedProviderId = Extract<ProviderId, "sarvam" | "demo">;
 
 export type TranslationRequest = {
   text: string;
@@ -20,7 +31,7 @@ export type TranslationRequest = {
 
 export type TranslationResult = {
   translatedText: string;
-  provider: ProviderId;
+  provider: GeneratedProviderId;
   /** Model identifier the provider actually used, for the audit trail. */
   model: string;
   /**
@@ -36,7 +47,7 @@ export type TranslationResult = {
 };
 
 export interface TranslationProvider {
-  readonly id: ProviderId;
+  readonly id: GeneratedProviderId;
   /** True when this provider can handle the pair. Checked before calling. */
   supports(sourceLanguage: string, targetLanguage: string): boolean;
   translate(request: TranslationRequest): Promise<TranslationResult>;

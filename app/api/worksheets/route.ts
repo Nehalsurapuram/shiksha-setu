@@ -5,9 +5,10 @@ import {
   WorksheetContentSchema,
   worksheetKindFor,
 } from "@/lib/ai/generated-content";
+import { StoredAlignmentSchema } from "@/lib/fln/alignment";
 import { fail } from "@/lib/api/speech-responses";
 import { prisma } from "@/lib/database/prisma";
-import { getCurrentTeacher } from "@/lib/database/queries";
+import { isDenied, requireApiUser } from "@/lib/auth/guards";
 import type { Prisma, WorksheetKind } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +22,7 @@ const BodySchema = z.object({
   provider: z.string().trim().max(40).nullable().default(null),
   model: z.string().trim().max(80).nullable().default(null),
   isEdited: z.boolean().default(false),
+  alignment: StoredAlignmentSchema.nullable().default(null),
 });
 
 /**
@@ -43,7 +45,9 @@ export async function POST(request: Request) {
     return fail("PROVIDER_ERROR", "The worksheet is missing required fields.", 400);
   }
 
-  const teacher = await getCurrentTeacher();
+  const authorized = await requireApiUser();
+  if (isDenied(authorized)) return authorized.response;
+  const teacher = authorized.user;
   if (!teacher) {
     return fail(
       "PROVIDER_ERROR",
@@ -68,6 +72,7 @@ export async function POST(request: Request) {
         provider: input.provider,
         model: input.model,
         isEdited: input.isEdited,
+        alignment: (input.alignment ?? undefined) as Prisma.InputJsonValue | undefined,
         createdById: teacher.id,
       },
       select: { id: true, title: true },

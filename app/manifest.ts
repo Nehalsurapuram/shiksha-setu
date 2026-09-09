@@ -18,7 +18,23 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#f7fafb",
     theme_color: "#f7fafb",
     categories: ["education"],
+    // PNGs as well as the SVG: Chrome rasterises an SVG icon, but the Android
+    // WebView and Samsung Internet builds these tablets ship with do not
+    // reliably do so, and an installer that cannot produce an icon does not
+    // offer the install at all.
     icons: [
+      {
+        src: "/icons/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/icons/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any",
+      },
       {
         src: "/icons/icon.svg",
         sizes: "any",
@@ -26,9 +42,15 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: "any",
       },
       {
-        src: "/icons/icon-maskable.svg",
-        sizes: "any",
-        type: "image/svg+xml",
+        src: "/icons/icon-maskable-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "maskable",
+      },
+      {
+        src: "/icons/icon-maskable-512.png",
+        sizes: "512x512",
+        type: "image/png",
         purpose: "maskable",
       },
     ],

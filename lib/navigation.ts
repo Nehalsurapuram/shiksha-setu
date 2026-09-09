@@ -14,6 +14,13 @@ export const NAV_ITEMS: NavItem[] = [
     description: "Classroom overview and setup status.",
   },
   {
+    label: "Saved content",
+    href: "/library",
+    icon: "HardDrive",
+    phase: 1,
+    description: "Everything downloaded to this tablet. Works with no internet.",
+  },
+  {
     label: "Translator",
     href: "/translator",
     icon: "Languages",
@@ -77,8 +84,22 @@ export const NAV_ITEMS: NavItem[] = [
     description: "Recorded pronunciations, cached for offline playback.",
   },
   {
+    label: "Administration",
+    href: "/admin",
+    icon: "ShieldCheck",
+    phase: 1,
+    description: "Accounts, schools, languages and verified terminology.",
+  },
+  {
+    label: "Expert review",
+    href: "/expert/review",
+    icon: "BadgeCheck",
+    phase: 1,
+    description: "Validate teachers' corrections and build the verified glossary.",
+  },
+  {
     label: "Offline & Sync",
-    href: "/offline-sync",
+    href: "/offline",
     icon: "RefreshCw",
     phase: 1,
     description: "What is stored on this tablet and what is waiting to upload.",

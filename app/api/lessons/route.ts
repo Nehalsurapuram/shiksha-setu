@@ -1,10 +1,12 @@
 import { z } from "zod";
 
 import { TeachingPackageSchema } from "@/lib/ai/teaching-package";
+import { StoredAlignmentSchema } from "@/lib/fln/alignment";
 import { fail } from "@/lib/api/speech-responses";
 import { prisma } from "@/lib/database/prisma";
+import type { Prisma } from "@prisma/client";
+import { isDenied, requireApiUser } from "@/lib/auth/guards";
 import {
-  getCurrentTeacher,
   getDefaultLanguagePair,
 } from "@/lib/database/queries";
 
@@ -26,6 +28,7 @@ const BodySchema = z.object({
   packageModel: z.string().trim().max(80).nullable().optional(),
   /** True once a teacher has changed any generated field. */
   packageIsEdited: z.boolean().default(false),
+  alignment: StoredAlignmentSchema.nullable().default(null),
 });
 
 /**
@@ -48,10 +51,11 @@ export async function POST(request: Request) {
     return fail("PROVIDER_ERROR", "Give the lesson a title and some text.", 400);
   }
 
-  const [teacher, pair] = await Promise.all([
-    getCurrentTeacher(),
-    getDefaultLanguagePair(),
-  ]);
+  const authorized = await requireApiUser();
+  if (isDenied(authorized)) return authorized.response;
+
+  const teacher = authorized.user;
+  const pair = await getDefaultLanguagePair();
 
   if (!teacher) {
     return fail(
@@ -80,10 +84,11 @@ export async function POST(request: Request) {
         extractionMethod: input.extractionMethod ?? null,
         status: input.status,
         authorId: teacher.id,
-        schoolId: teacher.school?.id ?? null,
+        schoolId: teacher.schoolId,
         sourceLanguageId: pair.source.id,
         targetLanguageId: pair.target.id,
         lastOpenedAt: new Date(),
+        alignment: (input.alignment ?? undefined) as Prisma.InputJsonValue | undefined,
         ...(input.package
           ? {
               teachingPackage: {

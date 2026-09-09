@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { AccountPanel } from "@/components/auth/account-panel";
 import { Brand } from "@/components/layout/brand";
 import { Header } from "@/components/layout/header";
 import type { SelectableLanguage } from "@/components/layout/language-selector";
@@ -15,11 +16,13 @@ export function AppShell({
   languages,
   defaultSource,
   defaultTarget,
+  user,
 }: {
   children: ReactNode;
   languages: SelectableLanguage[];
   defaultSource: string | null;
   defaultTarget: string | null;
+  user: { name: string; email: string; role: string };
 }) {
   return (
     <div className="flex min-h-dvh bg-background">
@@ -34,6 +37,7 @@ export function AppShell({
           Translation is live. Features marked P2 / P3 are not built yet, and
           their screens say so.
         </div>
+        <AccountPanel user={user} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">

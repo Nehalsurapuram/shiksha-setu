@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { ClassroomRoom } from "@/components/classroom/classroom-room";
+import { RequiresConnection } from "@/components/offline/requires-connection";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -71,6 +72,11 @@ export default async function ClassroomPage() {
             <Badge variant="success">Sarvam connected</Badge>
           )
         }
+      />
+
+      <RequiresConnection
+        feature="The classroom"
+        stillAvailable="Both directions need a live connection."
       />
 
       {isDemo ? (

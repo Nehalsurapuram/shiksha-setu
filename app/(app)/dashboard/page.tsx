@@ -7,6 +7,8 @@ import { RecentLessons } from "@/components/dashboard/recent-lessons";
 import { StatCard } from "@/components/shared/stat-card";
 import { StatusRow } from "@/components/shared/status-row";
 import { Button } from "@/components/ui/button";
+import { requireUser } from "@/lib/auth/guards";
+import { prisma } from "@/lib/database/prisma";
 import {
   Card,
   CardContent,
@@ -17,7 +19,6 @@ import {
 import { getProviderReadiness, isDemoMode } from "@/lib/ai";
 import {
   checkDatabase,
-  getCurrentTeacher,
   getTeacherStats,
   listContinueTeaching,
   listRecentLessons,
@@ -47,7 +48,15 @@ export default async function DashboardPage() {
     );
   }
 
-  const teacher = await getCurrentTeacher();
+  const teacher = await requireUser();
+  // The session carries the school's id, not its name; the greeting wants the
+  // name and nothing else on this page needs the row.
+  const school = teacher.schoolId
+    ? await prisma.school.findUnique({
+        where: { id: teacher.schoolId },
+        select: { name: true },
+      })
+    : null;
 
   if (!teacher) {
     return (
@@ -88,7 +97,7 @@ export default async function DashboardPage() {
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {teacher.name}
-            {teacher.school ? ` · ${teacher.school.name}` : null}
+            {school ? ` · ${school.name}` : null}
           </p>
         </div>
         <Button asChild variant="outline" className="shrink-0">

@@ -30,13 +30,16 @@ type TranslateSuccess = {
   targetLanguage: string;
   sourceText: string;
   translatedText: string;
-  provider: "sarvam" | "demo";
+  provider: "sarvam" | "demo" | "glossary" | "human";
   isDemo: boolean;
   cached: boolean;
   model: string;
   confidence: number | null;
   durationMs: number;
   translationId: string;
+  /** Set when a person's approved wording was served instead of the model's. */
+  verifiedBy?: "glossary" | "expert" | null;
+  verifiedApprover?: string | null;
 };
 
 type TranslateFailure = {
@@ -149,6 +152,8 @@ export function TranslatorWorkspace({
       sourceText: entry.sourceText,
       translatedText: entry.correctedText ?? entry.targetText,
       provider: entry.source === "DEMO" ? "demo" : "sarvam",
+      verifiedBy: null,
+      verifiedApprover: null,
       isDemo: entry.source === "DEMO",
       cached: true,
       model: "stored",
@@ -326,6 +331,7 @@ export function TranslatorWorkspace({
               correct the translation, then Save.
             </p>
 
+            {result ? <VerifiedChain result={result} /> : null}
             {result ? <ResultMeta result={result} /> : null}
           </CardContent>
         </Card>
@@ -358,13 +364,53 @@ export function TranslatorWorkspace({
 function StatusBadges({ result }: { result: TranslateSuccess }) {
   return (
     <span className="flex flex-wrap items-center gap-1.5">
-      {result.isDemo ? (
+      {result.verifiedBy ? (
+        <Badge variant="success">
+          {result.verifiedBy === "glossary"
+            ? "Verified term"
+            : "Verified by expert"}
+        </Badge>
+      ) : result.isDemo ? (
         <Badge variant="warning">Demo Translation</Badge>
       ) : (
         <Badge variant="success">Sarvam</Badge>
       )}
-      {result.cached ? <Badge variant="outline">Saved</Badge> : null}
+      {result.cached && !result.verifiedBy ? (
+        <Badge variant="outline">Saved</Badge>
+      ) : null}
     </span>
+  );
+}
+
+/**
+ * The validation chain, shown on the result itself.
+ *
+ * A teacher needs to know which of three things they are reading: something a
+ * model produced, something a person corrected, or something a language expert
+ * has verified. Those carry very different weight in front of a class, and a
+ * screen that renders them identically is lying by omission.
+ */
+function VerifiedChain({ result }: { result: TranslateSuccess }) {
+  if (!result.verifiedBy) return null;
+
+  return (
+    <p className="mt-3 flex flex-wrap items-center gap-1.5 rounded-md border border-success/40 bg-success/10 p-2.5 text-xs text-success">
+      <span className="line-through opacity-70">AI translation</span>
+      <span aria-hidden>→</span>
+      <span>
+        {result.verifiedBy === "glossary"
+          ? "verified glossary term"
+          : "expert-approved correction"}
+      </span>
+      <span aria-hidden>→</span>
+      <span className="font-semibold">shown to you</span>
+      {result.verifiedApprover ? (
+        <span className="opacity-80">· approved by {result.verifiedApprover}</span>
+      ) : null}
+      <span className="w-full opacity-80">
+        No model was asked for this text. It is what a person approved.
+      </span>
+    </p>
   );
 }
 
@@ -374,7 +420,11 @@ function ResultMeta({ result }: { result: TranslateSuccess }) {
       <div className="flex gap-1">
         <dt>Provider:</dt>
         <dd className="font-medium">
-          {result.isDemo ? "demo (no model called)" : result.provider}
+          {result.verifiedBy
+            ? "human (no model called)"
+            : result.isDemo
+              ? "demo (no model called)"
+              : result.provider}
         </dd>
       </div>
       <div className="flex gap-1">
@@ -390,7 +440,11 @@ function ResultMeta({ result }: { result: TranslateSuccess }) {
       <div className="flex gap-1">
         <dt>Status:</dt>
         <dd className="font-medium">
-          {result.isDemo ? "not translated" : "translated, unreviewed"}
+          {result.verifiedBy
+            ? "verified by a person"
+            : result.isDemo
+              ? "not translated"
+              : "translated, unreviewed"}
         </dd>
       </div>
     </dl>

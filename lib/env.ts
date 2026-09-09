@@ -23,8 +23,16 @@ const schema = z.object({
   SARVAM_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
 
-  NEXTAUTH_SECRET: z.string().optional(),
-  NEXTAUTH_URL: z.string().optional(),
+  /**
+   * Signing key for session tokens. Required: without it Auth.js cannot verify
+   * a session, and a default would mean every deployment shares a key that
+   * anyone could forge tokens with. Generate one with `openssl rand -base64 32`.
+   */
+  AUTH_SECRET: z.string().min(32, "AUTH_SECRET must be at least 32 characters"),
+  AUTH_URL: z.string().optional(),
+
+  /** Seed-only. Sets the demo accounts' password; never read at runtime. */
+  SEED_PASSWORD: z.string().optional(),
 
   TRANSLATION_PROVIDER: z.enum(["sarvam", "openai"]).default("sarvam"),
   LLM_PROVIDER: z.enum(["openai", "sarvam"]).default("openai"),

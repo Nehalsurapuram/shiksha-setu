@@ -8,11 +8,15 @@ import {
   toSheetContent,
 } from "@/lib/ai/generated-content";
 import { enforceSheetRequest } from "@/lib/ai/enforce-request";
+import {
+  buildSheetAlignment,
+  tryBuildAlignment,
+} from "@/lib/fln/generate-alignment";
 import { translateSheet } from "@/lib/ai/translate-sheet";
 import { TranslationService } from "@/lib/ai/TranslationService";
 import { fail } from "@/lib/api/speech-responses";
+import { isDenied, requireApiUser } from "@/lib/auth/guards";
 import {
-  getCurrentTeacher,
   getDefaultLanguagePair,
 } from "@/lib/database/queries";
 
@@ -55,6 +59,9 @@ export async function POST(request: Request) {
     );
   }
 
+  const authorized = await requireApiUser();
+  if (isDenied(authorized)) return authorized.response;
+
   const pair = await getDefaultLanguagePair();
   if (!pair) return fail("PROVIDER_ERROR", "No language pair is configured.", 503);
 
@@ -79,21 +86,45 @@ export async function POST(request: Request) {
       languageCode: pair.source.code,
     });
 
-    let translateMs = 0;
-    let translationNote: string | null = "Translation was skipped for this run.";
+    // Alignment and translation are independent and hit different providers, so
+    // they run together. Sequentially they cost the teacher a whole extra model
+    // round-trip — measured at over three minutes for one worksheet. Alignment
+    // only reads `prompt` and `answer`; translation only writes the `*Sat`
+    // fields, so sharing `content` between them is safe.
+    const sideWorkStart = Date.now();
+    const teacher = parsed.data.translate ? authorized.user : null;
 
-    if (parsed.data.translate) {
-      const translateStart = Date.now();
-      const teacher = await getCurrentTeacher();
-      const outcome = await translateSheet(content, {
-        service: new TranslationService(),
-        sourceCode: pair.source.code,
-        targetCode: pair.target.code,
-        userId: teacher?.id ?? null,
-      });
-      translationNote = outcome.note;
-      translateMs = Date.now() - translateStart;
-    }
+    const [alignmentResult, translationOutcome] = await Promise.all([
+      tryBuildAlignment(() =>
+        buildSheetAlignment(
+          llm,
+          {
+            title: content.title,
+            grade: parsed.data.grade,
+            subject: parsed.data.subject,
+            topic: parsed.data.topic,
+            body: content.questions
+              .map((q, i) => `${i}. [${q.type}] ${q.prompt} -> ${q.answer}`)
+              .join("\n"),
+          },
+          content.questions.length,
+        ),
+      ),
+      parsed.data.translate
+        ? translateSheet(content, {
+            service: new TranslationService(),
+            sourceCode: pair.source.code,
+            targetCode: pair.target.code,
+            userId: teacher?.id ?? null,
+          })
+        : Promise.resolve(null),
+    ]);
+
+    const { alignment, note: alignmentNote } = alignmentResult;
+    const translationNote = translationOutcome
+      ? translationOutcome.note
+      : "Translation was skipped for this run.";
+    const translateMs = parsed.data.translate ? Date.now() - sideWorkStart : 0;
 
     return Response.json({
       success: true,
@@ -104,6 +135,8 @@ export async function POST(request: Request) {
       targetLanguage: { code: pair.target.code, name: pair.target.name },
       translationNote,
       warnings: enforcement.warnings,
+      alignment,
+      alignmentNote,
       processingTimeMs: Date.now() - startedAt,
       timings: { generateMs, translateMs },
     });

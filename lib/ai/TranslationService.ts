@@ -13,6 +13,11 @@ import {
 import { prisma } from "@/lib/database/prisma";
 import { env } from "@/lib/env";
 import { SarvamTranslationProvider } from "@/lib/sarvam/SarvamTranslationProvider";
+import {
+  findApprovedCorrection,
+  findVerifiedTerm,
+  type VerifiedSource,
+} from "@/lib/validation/verified-text";
 
 export type TranslateInput = {
   text: string;
@@ -45,6 +50,14 @@ export type TranslateOutcome = {
   cached: boolean;
   durationMs: number;
   createdAt: Date;
+  /**
+   * Set when the text returned is a human's, not the model's: a verified
+   * glossary term, or a correction a language expert approved. The UI says
+   * which, because "a person who speaks Santhali approved this" is a different
+   * claim from "a model produced this" and the two must never look alike.
+   */
+  verifiedBy: VerifiedSource | null;
+  verifiedApprover: string | null;
 };
 
 /**
@@ -146,6 +159,60 @@ export class TranslationService {
     const contentHash = hashContent(text, source.code, target.code);
     const startedAt = Date.now();
 
+    // A verified term answers before the model is asked. This is the whole
+    // point of collecting them: an expert has already said what this means, so
+    // spending a provider call to get a less reliable answer would be perverse.
+    // It also means verified terminology still translates with no API key.
+    const verifiedTerm = await findVerifiedTerm(text, source.id, target.id);
+    if (verifiedTerm) {
+      const record = await prisma.translation.upsert({
+        where: {
+          contentHash_sourceLanguageId_targetLanguageId: {
+            contentHash,
+            sourceLanguageId: source.id,
+            targetLanguageId: target.id,
+          },
+        },
+        create: {
+          sourceText: text,
+          targetText: verifiedTerm.text,
+          source: "GLOSSARY",
+          model: "verified-glossary",
+          confidence: null,
+          reviewStatus: "APPROVED",
+          contentHash,
+          createdById: input.userId ?? null,
+          sourceLanguageId: source.id,
+          targetLanguageId: target.id,
+        },
+        update: {
+          targetText: verifiedTerm.text,
+          source: "GLOSSARY",
+          model: "verified-glossary",
+          reviewStatus: "APPROVED",
+        },
+      });
+
+      return {
+        translationId: record.id,
+        sourceLanguage: source.code,
+        targetLanguage: target.code,
+        sourceText: text,
+        translatedText: verifiedTerm.text,
+        provider: "glossary",
+        model: "verified-glossary",
+        confidence: null,
+        // Not a demo result even with no API key configured: this text came
+        // from a person, and labelling it a placeholder would be wrong.
+        isDemo: false,
+        cached: true,
+        durationMs: Date.now() - startedAt,
+        createdAt: record.createdAt,
+        verifiedBy: verifiedTerm.from,
+        verifiedApprover: verifiedTerm.approvedBy,
+      };
+    }
+
     // Reuse a stored translation for the same text and pair. Demo rows are
     // skipped once a real provider is configured, so switching a key on does
     // not leave placeholder text cached in front of teachers.
@@ -163,19 +230,26 @@ export class TranslationService {
       existing && (this.isDemo || existing.source !== "DEMO");
 
     if (existing && existingIsUsable) {
+      // An expert's approved wording supersedes what the model said for this
+      // exact text. Serving the machine's version after a person has corrected
+      // and had it verified would make the whole review loop decorative.
+      const approved = await findApprovedCorrection(existing.id);
+
       return {
         translationId: existing.id,
         sourceLanguage: source.code,
         targetLanguage: target.code,
         sourceText: existing.sourceText,
-        translatedText: existing.targetText,
-        provider: existing.source === "DEMO" ? "demo" : "sarvam",
-        model: existing.model ?? "unknown",
-        confidence: existing.confidence,
-        isDemo: existing.source === "DEMO",
+        translatedText: approved?.text ?? existing.targetText,
+        provider: approved ? "human" : existing.source === "DEMO" ? "demo" : "sarvam",
+        model: approved ? "expert-approved" : (existing.model ?? "unknown"),
+        confidence: approved ? null : existing.confidence,
+        isDemo: approved ? false : existing.source === "DEMO",
         cached: true,
         durationMs: Date.now() - startedAt,
         createdAt: existing.createdAt,
+        verifiedBy: approved?.from ?? null,
+        verifiedApprover: approved?.approvedBy ?? null,
       };
     }
 
@@ -230,6 +304,9 @@ export class TranslationService {
       cached: false,
       durationMs,
       createdAt: record.createdAt,
+      // Freshly produced by a model: nothing about it is verified yet.
+      verifiedBy: null,
+      verifiedApprover: null,
     };
   }
 }

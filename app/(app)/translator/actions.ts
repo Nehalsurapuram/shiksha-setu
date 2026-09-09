@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { MAX_INPUT_CHARS } from "@/lib/ai/translation-provider";
 import { prisma } from "@/lib/database/prisma";
-import { getCurrentTeacher } from "@/lib/database/queries";
+import { getSessionUser } from "@/lib/auth/guards";
 
 export type CorrectionState = {
   status: "idle" | "saved" | "error";
@@ -43,12 +43,11 @@ export async function saveCorrection(
     return { status: "error", message: "Enter the corrected text before saving." };
   }
 
-  const teacher = await getCurrentTeacher();
+  // Server Actions are reachable by direct POST, so the acting user is read
+  // from the session here and never taken from the form.
+  const teacher = await getSessionUser();
   if (!teacher) {
-    return {
-      status: "error",
-      message: "No teacher account is set up on this installation.",
-    };
+    return { status: "error", message: "Sign in to save a correction." };
   }
 
   const translation = await prisma.translation.findUnique({
@@ -75,8 +74,13 @@ export async function saveCorrection(
           correctedById: teacher.id,
           correctedText: parsed.data.correctedText,
           reason: parsed.data.reason ?? null,
-          // A correction typed by the teacher who will teach the lesson is
-          // authoritative here; there is no separate review step yet.
+          // Snapshot what the model said, so the pair survives even if this
+          // translation is later re-translated. The difference between the two
+          // is the whole value of the correction.
+          aiTranslation: translation.targetText,
+          // The teacher uses their own correction in their own classroom
+          // immediately — a lesson cannot wait for review. Whether it becomes
+          // *verified* is a language expert's call, on /expert/review.
           isAccepted: true,
         },
       }),

@@ -5,9 +5,13 @@ import { LLMError, MAX_LESSON_CHARS } from "@/lib/ai/llm-provider";
 import { toPackageContent } from "@/lib/ai/teaching-package";
 import { translateLong } from "@/lib/ai/translate-long";
 import { TranslationService } from "@/lib/ai/TranslationService";
-import { fail } from "@/lib/api/speech-responses";
 import {
-  getCurrentTeacher,
+  buildLessonAlignment,
+  tryBuildAlignment,
+} from "@/lib/fln/generate-alignment";
+import { fail } from "@/lib/api/speech-responses";
+import { isDenied, requireApiUser } from "@/lib/auth/guards";
+import {
   getDefaultLanguagePair,
 } from "@/lib/database/queries";
 
@@ -70,12 +74,30 @@ export async function POST(request: Request) {
 
     const content = toPackageContent(generated);
 
+    // Alignment describes the generated package, so it is built from it rather
+    // than from the raw source text.
+    const { alignment, note: alignmentNote } = await tryBuildAlignment(() =>
+      buildLessonAlignment(llm, {
+        title: parsed.data.title ?? generated.learningObjective.slice(0, 80),
+        grade: parsed.data.grade ?? null,
+        subject: parsed.data.subject ?? null,
+        topic: parsed.data.topic ?? null,
+        body: [
+          generated.learningObjective,
+          generated.teacherExplanation,
+          generated.activity.title,
+        ].join("\n"),
+      }),
+    );
+
     let translateMs = 0;
     let translationNote: string | null = null;
 
     if (parsed.data.translate) {
       const translateStart = Date.now();
-      const teacher = await getCurrentTeacher();
+      const authorized = await requireApiUser();
+  if (isDenied(authorized)) return authorized.response;
+  const teacher = authorized.user;
       const translation = new TranslationService();
 
       if (translation.isDemo) {
@@ -141,6 +163,8 @@ export async function POST(request: Request) {
       sourceLanguage: { code: pair.source.code, name: pair.source.name },
       targetLanguage: { code: pair.target.code, name: pair.target.name },
       translationNote,
+      alignment,
+      alignmentNote,
       processingTimeMs: Date.now() - startedAt,
       timings: { generateMs, translateMs },
     });

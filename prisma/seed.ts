@@ -3,6 +3,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 
+import { hashPassword } from "../lib/auth/password";
 import { LANGUAGES } from "../lib/languages";
 import { SAMPLE_LESSONS } from "../lib/sample-lessons";
 
@@ -58,19 +59,70 @@ async function main() {
     where: { code: "sat-IN" },
   });
 
+  /*
+   * Demo accounts, one per role, with a password.
+   *
+   * The password comes from SEED_PASSWORD when it is set. The fallback is a
+   * fixed development value, printed on every run so nobody is left guessing —
+   * and so nobody mistakes it for a secret. A deployment that wants real
+   * accounts sets SEED_PASSWORD, or creates users some other way; seeding a
+   * known password into production is exactly the mistake this comment exists
+   * to prevent.
+   */
+  const seedPassword = process.env.SEED_PASSWORD ?? "shiksha-dev-1234";
+  const passwordHash = await hashPassword(seedPassword);
+
   const teacher = await prisma.user.upsert({
     where: { email: "teacher@shikshasetu.local" },
-    update: {},
+    update: { passwordHash },
     create: {
       email: "teacher@shikshasetu.local",
       name: "Demo Teacher",
       role: "TEACHER",
+      passwordHash,
       schoolId: school.id,
       sourceLanguageId: hindi.id,
       targetLanguageId: santhali.id,
     },
   });
-  console.log("Seeded demo school and teacher.");
+  // A language expert as well as a teacher: /expert/review can only attribute
+  // an approval to an account holding the role, and a review screen that cannot
+  // approve anything is not a demonstration of anything.
+  await prisma.user.upsert({
+    where: { email: "expert@shikshasetu.local" },
+    update: { passwordHash },
+    create: {
+      email: "expert@shikshasetu.local",
+      name: "Demo Language Expert",
+      role: "LANGUAGE_EXPERT",
+      passwordHash,
+      schoolId: school.id,
+      sourceLanguageId: hindi.id,
+      targetLanguageId: santhali.id,
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { email: "admin@shikshasetu.local" },
+    update: { passwordHash },
+    create: {
+      email: "admin@shikshasetu.local",
+      name: "Demo Administrator",
+      role: "ADMIN",
+      passwordHash,
+      schoolId: school.id,
+    },
+  });
+
+  console.log("Seeded demo school and three accounts:");
+  console.log("  teacher@shikshasetu.local  (TEACHER)");
+  console.log("  expert@shikshasetu.local   (LANGUAGE_EXPERT)");
+  console.log("  admin@shikshasetu.local    (ADMIN)");
+  console.log(
+    process.env.SEED_PASSWORD
+      ? "  password: from SEED_PASSWORD"
+      : `  password: ${seedPassword}  — development only, set SEED_PASSWORD to change`,
+  );
 
   // Sample lessons, so the dashboard reads real rows instead of hard-coded
   // numbers. Marked isSample so every screen can label them as such. No

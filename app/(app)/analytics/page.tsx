@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 
 import { NotBuiltYet } from "@/components/shared/not-built-yet";
+import { requireCapability } from "@/lib/auth/guards";
 import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "Analytics" };
 
-export default function AnalyticsPage() {
+export default async function AnalyticsPage() {
+  // Usage across a district is administrative data, not a teacher's own. Gated
+  // now rather than when the screen is built, so it cannot ship open by
+  // accident once there is something on it.
+  await requireCapability("administer", "/analytics");
+
   return (
     <>
       <PageHeader

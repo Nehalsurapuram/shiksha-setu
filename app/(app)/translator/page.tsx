@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 
+import { RequiresConnection } from "@/components/offline/requires-connection";
 import { PageHeader } from "@/components/shared/page-header";
 import type { HistoryEntry } from "@/components/translator/translation-history";
 import { TranslatorWorkspace } from "@/components/translator/translator-workspace";
 import { Badge } from "@/components/ui/badge";
+import { requireUser } from "@/lib/auth/guards";
 import {
   Card,
   CardContent,
@@ -13,7 +15,6 @@ import {
 } from "@/components/ui/card";
 import { TranslationService } from "@/lib/ai/TranslationService";
 import {
-  getCurrentTeacher,
   getDefaultLanguagePair,
   listTranslationHistory,
 } from "@/lib/database/queries";
@@ -31,7 +32,7 @@ const DATE_FORMAT = new Intl.DateTimeFormat("en-IN", {
 export default async function TranslatorPage() {
   const [pair, teacher] = await Promise.all([
     getDefaultLanguagePair(),
-    getCurrentTeacher(),
+    requireUser(),
   ]);
 
   if (!pair) {
@@ -83,6 +84,11 @@ export default async function TranslatorPage() {
             <Badge variant="success">Sarvam connected</Badge>
           )
         }
+      />
+
+      <RequiresConnection
+        feature="Translating new text"
+        stillAvailable="Translations you have already made stay readable."
       />
 
       {isDemo ? (

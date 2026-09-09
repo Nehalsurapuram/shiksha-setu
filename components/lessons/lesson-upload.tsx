@@ -11,6 +11,7 @@ import {
   Upload,
 } from "lucide-react";
 
+import { AlignmentCard } from "@/components/fln/alignment-card";
 import { PackageEditor } from "@/components/lessons/package-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { TeachingPackageContent } from "@/lib/ai/teaching-package";
+import type { StoredAlignment } from "@/lib/fln/alignment";
 
 type Detection = {
   languageCode: string | null;
@@ -84,6 +86,8 @@ export function LessonUpload({
     translationNote: string | null;
     processingTimeMs: number;
   } | null>(null);
+  const [alignment, setAlignment] = useState<StoredAlignment | null>(null);
+  const [alignmentNote, setAlignmentNote] = useState<string | null>(null);
   const [isEdited, setIsEdited] = useState(false);
 
   const upload = async (file: File) => {
@@ -146,6 +150,8 @@ export function LessonUpload({
             provider: string;
             model: string;
             translationNote: string | null;
+            alignment: StoredAlignment | null;
+            alignmentNote: string | null;
             processingTimeMs: number;
           }
         | Failure;
@@ -162,6 +168,8 @@ export function LessonUpload({
         translationNote: payload.translationNote,
         processingTimeMs: payload.processingTimeMs,
       });
+      setAlignment(payload.alignment ?? null);
+      setAlignmentNote(payload.alignmentNote ?? null);
       setIsEdited(false);
       setStep("package");
       if (payload.translationNote) setNotice(payload.translationNote);
@@ -195,6 +203,7 @@ export function LessonUpload({
           packageProvider: packageMeta?.provider ?? null,
           packageModel: packageMeta?.model ?? null,
           packageIsEdited: isEdited,
+          alignment,
         }),
       });
       const payload = (await response.json()) as
@@ -455,6 +464,12 @@ export function LessonUpload({
             It was written from your text by a language model, and the mother
             tongue column was machine translated. Both can be wrong.
           </p>
+
+          <AlignmentCard
+            alignment={alignment}
+            note={alignmentNote}
+            variant="lesson"
+          />
 
           <PackageEditor
             content={content}
