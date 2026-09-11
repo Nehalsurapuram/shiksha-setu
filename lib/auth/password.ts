@@ -50,8 +50,9 @@ const PREFIX = "scrypt";
 const PARAMS = { N: 131072, r: 8, p: 1, keylen: 64 } as const;
 
 export async function hashPassword(password: string): Promise<string> {
-  if (password.length < 8) {
-    throw new Error("Password must be at least 8 characters.");
+  // Lowered from 8 at the owner's request so a short local password seeds.
+  if (password.length < 5) {
+    throw new Error("Password must be at least 5 characters.");
   }
 
   const salt = randomBytes(16);

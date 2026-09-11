@@ -124,6 +124,26 @@ async function main() {
       : `  password: ${seedPassword}  — development only, set SEED_PASSWORD to change`,
   );
 
+  // The owner's own sign-in. Read from OWNER_EMAIL / OWNER_PASSWORD in .env so
+  // a personal address and password never land in git; skipped when unset.
+  const ownerEmail = process.env.OWNER_EMAIL?.toLowerCase().trim();
+  const ownerPassword = process.env.OWNER_PASSWORD;
+  if (ownerEmail && ownerPassword) {
+    const ownerHash = await hashPassword(ownerPassword);
+    await prisma.user.upsert({
+      where: { email: ownerEmail },
+      update: { passwordHash: ownerHash, role: "ADMIN", isActive: true },
+      create: {
+        email: ownerEmail,
+        name: ownerEmail.split("@")[0],
+        role: "ADMIN",
+        passwordHash: ownerHash,
+        schoolId: school.id,
+      },
+    });
+    console.log(`Seeded owner account: ${ownerEmail}  (ADMIN)`);
+  }
+
   // Sample lessons, so the dashboard reads real rows instead of hard-coded
   // numbers. Marked isSample so every screen can label them as such. No
   // Translation rows are created: nothing has actually been translated.
