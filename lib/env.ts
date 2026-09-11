@@ -36,7 +36,7 @@ const schema = z.object({
   AUTH_URL: z.string().optional(),
 
   /** Seed-only. Sets the demo accounts' password; never read at runtime. */
-  SEED_PASSWORD:ZPV2Ch5wJDnWpeE0f8mXuF9cHK_gRl0A
+  SEED_PASSWORD: z.string().optional(),
 
   TRANSLATION_PROVIDER: z.enum(["sarvam", "openai"]).default("sarvam"),
   LLM_PROVIDER: z.enum(["openai", "sarvam"]).default("openai"),
